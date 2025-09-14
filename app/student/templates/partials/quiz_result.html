@@ -1,0 +1,15 @@
+<div class="p-4 border rounded-lg bg-green-50">
+    <h3 class="text-lg font-bold">Your Score: {{ correct }}</h3>
+
+    <ul class="mt-3 space-y-2 text-sm">
+        {% for f in feedback %}
+            <li class="p-2 rounded 
+                       {% if f.is_correct %}bg-green-100 text-green-700
+                       {% else %}bg-red-100 text-red-700{% endif %}">
+                Q{{ f.qid }}: {{ f.question }}<br>
+                Your Answer: {{ f.your_answer or "None" }} | 
+                Correct: {{ f.correct_answer }}
+            </li>
+        {% endfor %}
+    </ul>
+</div>

@@ -1,0 +1,127 @@
+{% extends 'includes/base.html'%}
+
+{% block content %}
+
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-xl">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Edit Course: <span id="course-title-display">{{ course.title }}</span></h1>
+            <p class="text-gray-600">Update your course content by modifying chapters, sessions, and materials.</p>
+        </header>
+
+        <!-- Flash messages container -->
+        <div id="flash-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="p-4 mb-4 text-sm text-white rounded-lg {% if category == 'success' %}bg-green-500{% elif category == 'danger' %}bg-red-500{% else %}bg-blue-500{% endif %}" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- The key change is adding onsubmit="return false;" to ensure the JS handles submission -->
+        <form id="edit-course-form" method="POST" class="space-y-6" onsubmit="return false;">
+            <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token }}">
+
+            <!-- Basic Course Information Section -->
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Course Details</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="course-title" class="block text-gray-700 font-medium">Course Title</label>
+                        <input type="text" id="course-title" name="title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2" placeholder="e.g., Introduction to Web Development" value="{{ course.title }}" required>
+                    </div>
+                    <div>
+                        <label for="course-description" class="block text-gray-700 font-medium">Description</label>
+                        <textarea id="course-description" name="description" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2" placeholder="A brief overview of your course.">{{ course.description }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Chapter Section -->
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-700">Chapters</h2>
+                    <button type="button" id="add-chapter-btn" class="px-4 py-2 bg-green-500 text-white font-medium rounded-lg shadow-md hover:bg-green-600 transition duration-300">
+                        <i class="fas fa-plus mr-2"></i> Add Chapter
+                    </button>
+                </div>
+                <div id="chapters-container" class="space-y-4">
+                    <!-- Chapters will be rendered here by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Form Submission Buttons -->
+            <div class="flex justify-end space-x-4 mt-8">
+                <a href="{{ url_for('teacher.teacher_dashboard') }}" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg shadow-md hover:bg-gray-400 transition duration-300">Cancel</a>
+                <button type="submit" id="save-course-btn" class="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition duration-300">
+                    <i class="fas fa-save mr-2"></i> Save Course
+                </button>
+            </div>
+            
+            <!-- Loading and success messages -->
+            <div id="loading-spinner" class="hidden text-center text-gray-600 mt-4">
+                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                <p class="mt-2">Saving your changes...</p>
+            </div>
+        </form>
+    </div>
+
+    <!-- JavaScript to handle dynamic form logic-->
+    
+
+<script>
+    const form = document.getElementById('edit-course-form');
+    // Ensure you have a status container in your HTML for messages
+    const statusContainer = document.getElementById('status-messages'); 
+    const saveButton = document.getElementById('save-course-btn');
+    const courseId = "{{ course.id }}";
+
+    // Add this event listener to the form to handle submission
+    form.addEventListener('submit', handleFormSubmission);
+
+    async function handleFormSubmission(event) {
+        event.preventDefault();
+
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+        if (statusContainer) {
+            statusContainer.innerHTML = ''; // Clear previous messages
+        }
+
+        const formData = new FormData(form);
+        const url = `/teacher/edit_course/${courseId}`; // Correct URL for the POST route
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json(); // Attempt to parse JSON
+
+            if (response.ok) { // `response.ok` is true for HTTP status codes in the 200 range
+                if (statusContainer) {
+                    statusContainer.innerHTML = `<div class="p-4 text-sm text-white rounded-lg bg-green-500" role="alert">${result.message}</div>`;
+                }
+                saveButton.innerHTML = '<i class="fas fa-check mr-2"></i> Saved!';
+            } else { // Handle non-200 responses
+                if (statusContainer) {
+                    statusContainer.innerHTML = `<div class="p-4 text-sm text-white rounded-lg bg-red-500" role="alert">Error: ${result.error || 'An unknown error occurred.'}</div>`;
+                }
+                saveButton.innerHTML = '<i class="fas fa-save mr-2"></i> Save Course';
+            }
+        } catch (error) {
+            console.error('Submission error:', error);
+            if (statusContainer) {
+                statusContainer.innerHTML = `<div class="p-4 text-sm text-white rounded-lg bg-red-500" role="alert">An unexpected error occurred. Please check the console for details.</div>`;
+            }
+            saveButton.innerHTML = '<i class="fas fa-save mr-2"></i> Save Course';
+        } finally {
+            saveButton.disabled = false;
+        }
+    }
+</script>
+  {% endblock %}

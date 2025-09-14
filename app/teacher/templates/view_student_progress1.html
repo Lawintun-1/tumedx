@@ -1,0 +1,211 @@
+{% extends 'includes/base.html' %}
+
+{% block content %}
+<div class="container mx-auto p-8 bg-gray-50 min-h-screen">
+    <h1 class="text-4xl font-extrabold text-gray-900 mb-2 text-center">Student Progress for <span class="text-indigo-600">{{ course.title }}</span></h1>
+    <p class="text-lg text-gray-600 mb-8 text-center max-w-2xl mx-auto">
+        This graph visualizes the learning progress based on the Power Law, showing a continuous curve of error reduction over time.
+    </p>
+     <a href="{{ url_for('teacher.view_course_options', course_id=course.id) }}"
+           class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-full shadow-md hover:bg-blue-600 transition duration-300 text-sm font-semibold">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+            </svg>
+            Back to Options
+        </a>
+
+    <div class="bg-white p-6 rounded-lg shadow-xl mb-8 max-w-5xl mx-auto">
+        <h2 id="chartTitle" class="text-2xl font-bold text-gray-800 mb-4">Overall Learning Curve</h2>
+        <div class="relative h-48">
+            <canvas id="learningCurveChart"></canvas>
+        </div>
+        <div class="text-center mt-4">
+            <p class="text-gray-700 font-semibold text-lg">
+                <span id="indexLabel">Average Learning Index</span>: <span id="learningIndex" class="text-indigo-600">Calculating...</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-xl max-w-5xl mx-auto">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Individual Student Progress</h2>
+        <p class="text-gray-600 mb-4">Click a student's name to view their individual learning curve.</p>
+        <div id="studentList" class="flex flex-wrap gap-2 justify-center">
+            </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // --- Sample JSON Data ---
+    const rawData = {
+        "students": [
+            
+            {"name": "Alpha", "data": [[1, 1], [2, 15], [4, 13], [8, 1], [16, 11]] },
+            { "name": "Bravo", "data": [[1, 3], [13, 4.5], [5, 4], [10, 1.5], [20, 0.9]] },
+            { "name": "Charlie", "data": [[1, 17], [2.5, 16], [5, 5], [10, 2], [15, 1.3]] },
+            { "name": "Delta", "data": [[1, 15], [2, 4], [4, 5], [8, 1.5], [12, 1.1]] },
+            { "name": "Echo", "data": [[1, 17], [2, 17], [3, 14], [6, 2], [11, 12]] }
+]}
+
+    const studentListContainer = document.getElementById('studentList');
+    const chartCanvas = document.getElementById('learningCurveChart');
+    const ctx = chartCanvas.getContext('2d');
+    let learningCurveChart;
+
+    const chartTitleElement = document.getElementById('chartTitle');
+    const indexLabelElement = document.getElementById('indexLabel');
+    const learningIndexElement = document.getElementById('learningIndex');
+
+    // Helper function to perform linear regression on log-transformed data
+    function getPowerLawParams(dataset) {
+        const n = dataset.length;
+        if (n <= 1) return { T1: 0, b: 0, rSquared: 0 };
+        
+        let sum_log_x = 0, sum_log_y = 0, sum_log_xy = 0, sum_log_x2 = 0, sum_log_y2 = 0;
+        dataset.forEach(point => {
+            const logX = Math.log10(point[0]);
+            const logY = Math.log10(point[1]);
+            sum_log_x += logX;
+            sum_log_y += logY;
+            sum_log_xy += logX * logY;
+            sum_log_x2 += logX * logX;
+            sum_log_y2 += logY * logY;
+        });
+
+        const b = (n * sum_log_xy - sum_log_x * sum_log_y) / (n * sum_log_x2 - sum_log_x * sum_log_x);
+        const log_T1 = (sum_log_y - b * sum_log_x) / n;
+        const T1 = Math.pow(10, log_T1);
+        
+        const rSquared = Math.pow((n * sum_log_xy - sum_log_x * sum_log_y) / Math.sqrt((n * sum_log_x2 - sum_log_x * sum_log_x) * (n * sum_log_y2 - sum_log_y * sum_log_y)), 2);
+        
+        return { T1: T1, b: Math.abs(b), rSquared: rSquared };
+    }
+
+    // Function to generate the curve data based on the Power Law formula
+    function generatePowerLawCurve(T1, b, maxAttempts) {
+        const data = [];
+        // Generate a smooth line with 100 points
+        const numPoints = 100;
+        for (let i = 1; i <= numPoints; i++) {
+            const n = (i / numPoints) * maxAttempts;
+            const Tn = T1 * Math.pow(n, -b);
+            data.push({ x: n, y: Tn });
+        }
+        return data;
+    }
+
+    function createChart(rawDataPoints, title) {
+        if (learningCurveChart) {
+            learningCurveChart.destroy();
+        }
+
+        const maxAttempts = Math.max(...rawDataPoints.map(p => p[0]));
+        const { T1, b } = getPowerLawParams(rawDataPoints);
+        const curveData = generatePowerLawCurve(T1, b, maxAttempts);
+
+        learningCurveChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Student Data',
+                        data: rawDataPoints.map(d => ({ x: d[0], y: d[1] })),
+                        backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                        pointRadius: 5,
+                        showLine: false, // Do not connect the raw data points
+                    },
+                    {
+                        label: 'Learning Curve (Power Law)',
+                        data: curveData,
+                        type: 'line',
+                        fill: false,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgb(255, 99, 132)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'Attempts',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        min: 0
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Errors',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        min: 0
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const datasetLabel = context.dataset.label;
+                                const x = context.raw.x;
+                                const y = context.raw.y;
+                                return `${datasetLabel} - Attempts: ${x.toFixed(1)}, Errors: ${y.toFixed(2)}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function showOverallAverage() {
+        const allDataPoints = rawData.students.flatMap(student => student.data);
+        const { T1, b } = getPowerLawParams(allDataPoints);
+        
+        chartTitleElement.textContent = 'Overall Learning Curve';
+        indexLabelElement.textContent = 'Average Learning Index';
+        learningIndexElement.textContent = b.toFixed(4);
+        
+        createChart(allDataPoints, 'Overall Learning Curve');
+
+        const buttons = document.querySelectorAll('.student-button');
+        buttons.forEach(btn => btn.classList.remove('bg-indigo-600', 'text-white'));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        showOverallAverage();
+
+        rawData.students.forEach((student) => {
+            const button = document.createElement('button');
+            button.textContent = student.name;
+            button.className = 'student-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-full transition duration-150 ease-in-out';
+            button.onclick = () => {
+                const { T1, b } = getPowerLawParams(student.data);
+                
+                chartTitleElement.textContent = student.name + "'s Learning Curve";
+                indexLabelElement.textContent = student.name + "'s Learning Index";
+                learningIndexElement.textContent = b.toFixed(4);
+                
+                createChart(student.data, student.name + "'s Learning Curve");
+                
+                const buttons = document.querySelectorAll('.student-button');
+                buttons.forEach(btn => btn.classList.remove('bg-indigo-600', 'text-white'));
+                button.classList.add('bg-indigo-600', 'text-white');
+            };
+            studentListContainer.appendChild(button);
+        });
+
+        const overallButton = document.createElement('button');
+        overallButton.textContent = "Overall Average";
+        overallButton.className = 'student-button bg-indigo-600 text-white font-semibold py-2 px-4 rounded-full transition duration-150 ease-in-out';
+        overallButton.onclick = showOverallAverage;
+        studentListContainer.prepend(overallButton);
+    });
+</script>
+{% endblock %}

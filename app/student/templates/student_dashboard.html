@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Tumedx</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+
+    <!-- CodeMirror 5 CDN links -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+
+    <!-- Language mode files from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/php/php.min.js"></script>
+
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .main-content-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .main-content-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .main-content-scroll::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .main-content-scroll::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row min-h-screen bg-gray-100">
+
+    <!-- Mobile Sidebar Overlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black opacity-0 transition-opacity duration-300 md:hidden z-40 pointer-events-none"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-indigo-800 text-white p-6 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out md:static z-50 md:rounded-r-xl md:shadow-lg">
+        <div class="flex items-center justify-between mb-8">
+            <a href="#" class="text-xl md:text-2xl font-bold text-white hover:bg-indigo-700 rounded-md px-2 py-1 transition">Tumedx</a>
+            <button id="close-sidebar" class="text-gray-400 hover:text-white md:hidden">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+
+        <nav class="flex-grow">
+            <ul class="space-y-2">
+                <li>
+                    <a href="{{ url_for('student.student_dashboard')}}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-indigo-700 transition text-base font-medium">
+                        <i class="fas fa-tachometer-alt w-6"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a 
+                        href="#" 
+                        hx-get="{{ url_for('student.my_course') }}" 
+                        hx-target="#content-wrapper" 
+                        hx-swap="innerHTML" 
+                        class="flex items-center space-x-3 p-3 rounded-lg hover:bg-indigo-700 transition text-base font-medium"
+                    >
+                        <i class="fas fa-book-open w-6"></i>
+                        <span>My Courses</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-indigo-700 transition text-base font-medium">
+                        <i class="fas fa-cog w-6"></i>
+                        <span>Settings</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="mt-6">
+            <a href="{{ url_for('auth.logout')}}" class="flex items-center justify-center space-x-2 p-3 bg-indigo-700 rounded-lg hover:bg-indigo-600 transition text-base font-medium shadow">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Top Bar -->
+        <header class="flex justify-between items-center bg-white p-4 sm:p-6 shadow-md rounded-bl-xl">
+            <button id="open-sidebar" class="text-gray-800 hover:text-indigo-600 md:hidden">
+                <i class="fas fa-bars text-2xl"></i>
+            </button>
+            <h1 class="text-lg sm:text-2xl md:text-3xl font-semibold text-gray-800">Student Dashboard</h1>
+            <div class="flex items-center space-x-3">
+                <span class="text-gray-700 text-sm sm:text-base"><span class="font-bold">{{ name }}</span></span>
+                <img src="https://placehold.co/40x40/667eea/ffffff?text=SN" alt="User Avatar" class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-indigo-500">
+            </div>
+        </header>
+
+        <div id="content-wrapper">
+            <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 main-content-scroll">
+                <!-- Stat Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+                    <!-- Courses in Progress -->
+                    <div class="bg-white p-5 sm:p-6 rounded-xl shadow-md transform hover:scale-[1.02] transition">
+                        <div class="flex items-center justify-between mb-3 sm:mb-4">
+                            <h2 class="text-lg sm:text-xl font-semibold text-gray-800">Courses in Progress</h2>
+                            <i class="fas fa-book-open text-indigo-500 text-2xl sm:text-3xl"></i>
+                        </div>
+                        <p class="text-gray-600 text-3xl sm:text-4xl font-bold">{{ num_enrollment_courses or 0 }}</p>
+                        <p class="text-gray-500 text-sm sm:text-base">Currently enrolled</p>
+                    </div>
+
+                    <!-- Overall Progress -->
+                    <div 
+    hx-get="{{ url_for('student.editor') }}" 
+    hx-target="#content-wrapper" 
+    hx-swap="innerHTML"
+    class="cursor-pointer bg-white p-5 sm:p-6 rounded-xl shadow-md transform hover:scale-[1.02] transition"
+>
+   <!-- <div class="flex items-center justify-between mb-3 sm:mb-4"> 
+        <h2 class="text-lg sm:text-xl font-semibold text-gray-800">Code Editor</h2>
+        <i class="fas fa-chart-line text-purple-500 text-2xl sm:text-3xl"></i> 
+    </div> -->
+   
+   <!-- <p class="text-gray-600 text-3xl sm:text-4xl font-bold"><code>&lt;/&gt;</code></p> 
+    <p class="text-gray-500 text-sm sm:text-base">Compline Your Code Here ! </p> -->
+</div> 
+
+                </div>
+
+                <!-- Recommended Courses -->
+                <div class="bg-white p-5 sm:p-6 rounded-xl shadow-md mb-8">
+                    <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">Recommended Courses</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        {% for c in course %}
+                            {% if c.id not in enrollment_course_list %}
+                            <div class="border border-gray-200 p-4 rounded-lg flex flex-col hover:shadow-md transition">
+                                <h3 class="text-lg font-semibold text-gray-800">{{ c.title }}</h3>
+                                <p class="text-gray-600 text-sm mt-2">{{ c.description | truncate_words(30) }}</p>
+                                <button 
+                                    hx-post="{{ url_for('student.enroll_course', course_id=c.id) }}"
+                                    hx-target="#content-wrapper"
+                                    hx-swap="innerHTML"
+                                    class="mt-3 px-3 py-2 bg-indigo-500 text-white text-sm rounded-md hover:bg-indigo-600 transition"
+                                >
+                                    Enroll Now
+                                </button>
+                            </div>
+                            {% endif %}
+                        {% else %}
+                        <p class="text-gray-500 col-span-full">No courses available right now.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Sidebar Toggle Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const openSidebarBtn = document.getElementById('open-sidebar');
+            const closeSidebarBtn = document.getElementById('close-sidebar');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+            function toggleSidebar() {
+                sidebar.classList.toggle('-translate-x-full');
+                sidebarOverlay.classList.toggle('opacity-0');
+                sidebarOverlay.classList.toggle('opacity-50');
+                sidebarOverlay.classList.toggle('pointer-events-none');
+            }
+
+            openSidebarBtn.addEventListener('click', toggleSidebar);
+            closeSidebarBtn.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+        });
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" crossorigin="anonymous"></script>
+</body>
+</html>

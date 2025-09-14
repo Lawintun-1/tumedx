@@ -1,0 +1,21 @@
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+    {% if courses %}
+        {% for c in courses %}
+        <div class="bg-white shadow-lg rounded-xl p-6 flex flex-col justify-between hover:shadow-2xl transition duration-300">
+            <h3 class="text-xl font-bold text-gray-800 mb-2">{{ c.title }}</h3>
+            <p class="text-gray-600 text-sm mb-4">{{ c.description | truncate_words(30) }}</p>
+            
+            <button 
+                hx-get="{{ url_for('student.learning_room', course_id=c.id) }}" 
+                hx-target="#content-wrapper" 
+                hx-swap="innerHTML"
+                class="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-300"
+            >
+                Start Learning
+            </button>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="text-gray-500 col-span-full">You have not enrolled in any courses yet.</p>
+    {% endif %}
+</div>

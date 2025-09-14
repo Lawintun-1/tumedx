@@ -1,0 +1,23 @@
+<div id="chapter-{{ course.id }}-{{ chapter.id }}" class="p-4 bg-gray-100 rounded mb-2">
+    <p class="font-semibold">{{ chapter.order }}. {{ chapter.title }}</p>
+
+    <div class="flex gap-2 mt-2">
+        <button class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                hx-post="{{ url_for('teacher.edit_chapter') }}"
+                hx-vals='{"chapter_id": "{{ chapter.id }}"}'
+                hx-target="#content-wrapper" 
+                hx-swap="outerHTML">
+            ✏️ Edit
+        </button>
+
+        
+        <button class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+        hx-post="{{ url_for('teacher.delete_chapter_standalone') }}"
+        hx-vals='{"chapter_id": "{{ chapter.id }}"}'
+        hx-target="#chapters-list"
+        hx-swap="outerHTML">
+    🗑 Delete
+</button>
+
+    </div>
+</div>

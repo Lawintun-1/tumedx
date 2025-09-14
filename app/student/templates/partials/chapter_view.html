@@ -1,0 +1,101 @@
+<div class="max-w-4xl mx-auto p-6">
+  <h1 class="text-2xl font-bold mb-4">{{ chapter.title }}</h1>
+  <p class="text-gray-600 mb-6">Select a session to continue:</p>
+
+  <div class="space-y-6">
+    {% for session in sessions %}
+      <div class="p-6 bg-white rounded-xl shadow-lg">
+        <h2 class="text-xl font-semibold text-indigo-700 mb-3">
+          {{ session.title }} ({{ session.session_type|capitalize }})
+        </h2>
+
+        {# ------------------------
+           Learning Session
+        ------------------------- #}
+        {% if session.session_type == "learning_session" %}
+          <div class="space-y-4">
+            {% for material in session.materials %}
+              {% if material.type == "text" %}
+                <div class="p-3 bg-gray-50 rounded-lg">
+                  <h3 class="font-semibold">{{ material.name }}</h3>
+                  <p class="text-gray-700">{{ material.content }}</p>
+                </div>
+              {% elif material.type == "video" %}
+                <div class="p-3 bg-gray-50 rounded-lg">
+                  <h3 class="font-semibold">{{ material.name }}</h3>
+                  <div class="aspect-w-16 aspect-h-9">
+                    <iframe src="{{ material.content }}" class="w-full h-full rounded-lg" frameborder="0" allowfullscreen></iframe>
+                  </div>
+                </div>
+              {% elif material.type == "image" %}
+                <div class="p-3 bg-gray-50 rounded-lg">
+                  <h3 class="font-semibold">{{ material.name }}</h3>
+                  <img src="{{ material.content }}" alt="{{ material.name }}" class="w-full rounded-lg shadow">
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          <!-- Continue to next session -->
+          <div class="mt-4">
+            <button 
+              hx-get="{{ url_for('student.chapter_view', chapter_id=chapter.id) }}" 
+              hx-target="#content-wrapper"
+              hx-swap="innerHTML"
+              class="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600">
+              Continue →
+            </button>
+          </div>
+        
+        {# ------------------------
+           Quiz Session
+        ------------------------- #}
+        {% elif session.session_type == "quiz_session" %}
+          {% for quiz in session.quizzes %}
+            <div class="p-4 bg-gray-50 rounded-lg mt-2">
+              <h3 class="font-semibold text-gray-800">{{ quiz.name }}</h3>
+              <p class="text-sm text-gray-600">Type: {{ quiz.type }}</p>
+
+              <!-- Loop over questions -->
+              {% for qid, question_text in quiz.question.items() %}
+                <div class="mt-3">
+                  <p class="font-medium">{{ qid }}. {{ question_text }}</p>
+
+                  {% if quiz.type.lower() == "mcq" or quiz.type.lower() == "tf" %}
+                    {% set opts = quiz.option[qid] %}
+                    <div class="space-y-2 mt-2">
+                      {% for opt in opts %}
+                        <label class="block p-2 border rounded cursor-pointer hover:bg-gray-100">
+                          <input type="radio" name="quiz-{{ quiz.id }}-{{ qid }}" value="{{ opt }}" class="mr-2">
+                          {{ opt }}
+                        </label>
+                      {% endfor %}
+                    </div>
+                  {% elif quiz.type.lower() == "blank" %}
+                    <input 
+                      type="text" 
+                      name="quiz-{{ quiz.id }}-{{ qid }}" 
+                      placeholder="Enter your answer"
+                      class="mt-2 w-full border rounded p-2"
+                    >
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="mt-6">
+    <a 
+      hx-get="{{ url_for('student.learning_room', course_id=chapter.course_id) }}"
+      hx-target="#content-wrapper"
+      hx-swap="innerHTML"
+      class="inline-block px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm"
+    >
+      ← Back to Chapter
+    </a>
+  </div>
+</div>

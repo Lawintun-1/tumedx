@@ -1,0 +1,9 @@
+<div id="materials-list">
+    {% if session.materials %}
+        {% for material in session.materials %}
+            {% include "_materials_item.html" %}
+        {% endfor %}
+    {% else %}
+        <p class="text-gray-500">No materials yet.</p>
+    {% endif %}
+</div>

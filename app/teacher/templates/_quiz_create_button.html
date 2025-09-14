@@ -1,0 +1,9 @@
+<div id="quiz-slot-{{ session.id }}">
+  <button hx-post="{{ url_for('teacher.create_quiz') }}"
+          hx-vals='{"session_id": "{{ session.id }}"}'
+          hx-target="#quiz-slot-{{ session.id }}"
+          hx-swap="outerHTML"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+    ➕ Create Quiz
+  </button>
+</div>

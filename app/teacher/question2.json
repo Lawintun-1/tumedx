@@ -1,0 +1,44 @@
+[
+    {
+        "id": 1,
+        "question": "What HTTP method is used in the @teacher_bp.route decorator for generating quiz questions?",
+        "option": [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE"
+        ],
+        "key": "B",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 2,
+        "question": "Which decorator ensures the user is logged in before accessing the generate_quiz_questions function?",
+        "option": [
+            "@login_required",
+            "@route",
+            "@post",
+            "@authenticate"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 3,
+        "question": "What is the expected format for the assistant's response according to the prompt?",
+        "option": [
+            "XML",
+            "YAML",
+            "JSON",
+            "CSV"
+        ],
+        "key": "C",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    }
+]

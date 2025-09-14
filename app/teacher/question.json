@@ -1,0 +1,18 @@
+[
+    {
+        "id": 1,
+        "question": "What is C# primarily used for?",
+        "option": [
+            "Web applications",
+            "Desktop applications",
+            "Mobile applications",
+            "All of the above"
+        ],
+        "key": "D",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ",
+        "quiz_id" : 1,
+        "session_id" : 2
+    }
+]

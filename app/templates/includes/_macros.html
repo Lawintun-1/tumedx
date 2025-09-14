@@ -1,0 +1,26 @@
+{% macro render_add_session_form() %}
+<div class="p-4 bg-gray-100 rounded-lg shadow-inner mt-4">
+    <h4 class="text-xl font-semibold mb-2 text-gray-800">Add New Session</h4>
+    <div class="flex flex-col md:flex-row gap-4">
+        <input
+            type="text"
+            name="session_title"
+            placeholder="Session Title (e.g., 'Week 1: Introduction')"
+            class="flex-grow p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <select
+            name="session_type"
+            class="p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+            <option value="learning">Learning Session</option>
+            <option value="question">Question Session</option>
+        </select>
+        <button type="button" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200">
+            Add Session
+        </button>
+    </div>
+</div>
+{% endmacro %}
+
+
+

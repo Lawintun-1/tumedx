@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Essential Meta Tags for Responsiveness and Charset -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Add to base.html -->
+    <meta name="csrf-token" content="{{ csrf_token }}">    
+    <!-- Dynamic Title Block -->
+    <title>{% block title %}Tumedx{% endblock %}</title>
+
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/font.min.css')}}">
+    
+    <!-- Link to your local Tailwind CSS build (e.g., if you have a custom build process) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.min.css') }}">
+    
+    <!-- You can add a block for additional stylesheets or scripts here -->
+    {% block head_extras %}{% endblock %}
+
+    <!-- Custom styles -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #333333;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <!-- Logo with a link to the main page -->
+            <a href="{{ url_for('main.guest_page') }}" class="flex items-center space-x-2">
+                <img src="{{ url_for('static', filename='img/tumedx_logo.png') }}" alt="Tumedx Logo" class="h-8">
+                <span class="text-2xl font-bold text-blue-700">Tumedx</span>
+            </a>
+
+            <!-- Navigation Links - This section can be dynamic based on user role -->
+            <div class="space-x-4">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.role == 'teacher' %}
+                        <a href="{{ url_for('teacher.teacher_dashboard') }}" class="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium">Dashboard</a>
+                        <a href="{{ url_for('teacher.create_course') }}" class="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium">Create Course</a>
+                    {% elif current_user.role == 'student' %}
+                        <a href="{{ url_for('student.student_dashboard') }}" class="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium">Dashboard</a>
+                    {% endif %}
+                    <a href="{{ url_for('auth.logout') }}" class="text-gray-600 hover:text-red-600 transition-colors duration-200 font-medium">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium">Login</a>
+                    <a href="{{ url_for('auth.register') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6 mt-auto">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; <span id="current-year"></span> Tumedx. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- A block for adding scripts at the end of the body -->
+    {% block scripts %}{% endblock %}
+
+    <script>
+        // Set the current year dynamically
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+    </script>
+</body>
+</html>

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Content Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container-card {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            margin: 2rem auto;
+            border: 1px solid #e5e7eb;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #4b5563;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col">
+
+    <div class="container-card">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Course Content Editor</h1>
+
+        <form id="course-form" onsubmit="event.preventDefault(); collectFormData(); console.log(this.course_content_json.value);">
+            <!-- The hidden input to hold the JSON data -->
+            <input type="hidden" id="course-content-json" name="course_content_json" value="">
+
+            <div class="mb-6">
+                <label for="course-title" class="block text-gray-700 font-medium mb-2">Course Title</label>
+                <input type="text" id="course-title" name="title" class="form-input" value="Advanced Web Development">
+            </div>
+
+            <div class="mb-6">
+                <label for="course-description" class="block text-gray-700 font-medium mb-2">Course Description</label>
+                <textarea id="course-description" name="description" class="form-input" rows="4">A comprehensive guide to building modern, full-stack web applications.</textarea>
+            </div>
+
+            <!-- Dynamic content container for Chapters, Sessions, and Materials -->
+            <div id="course-content-container" class="space-y-6">
+                <!-- Chapters will be added here dynamically by JavaScript -->
+            </div>
+
+            <div class="mt-8 flex justify-between items-center">
+                <button type="button" id="add-chapter-btn" class="flex-1 btn-secondary mr-2">
+                    <span class="font-bold">+</span> Add Chapter
+                </button>
+                <button type="submit" class="flex-1 btn-primary ml-2">
+                    Save Course
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Custom Modal for confirmations -->
+    <div id="custom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-80 text-center">
+            <p id="modal-message" class="mb-4 text-lg text-gray-700"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="modal-cancel" class="btn-secondary">Cancel</button>
+                <button id="modal-confirm" class="btn-primary bg-red-500 hover:bg-red-700">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const courseContentContainer = document.getElementById('course-content-container');
+        const addChapterBtn = document.getElementById('add-chapter-btn');
+        const courseContentJsonInput = document.getElementById('course-content-json');
+        
+        // Mock data to pre-populate the form, since there is no backend
+        let courseContentData = [{
+            title: 'Introduction to Frontend',
+            sessions: [{
+                title: 'HTML & CSS Fundamentals',
+                type: 'lecture',
+                materials: [{
+                    name: 'Lecture Slides: HTML & CSS',
+                    type: 'text',
+                    content: 'An introduction to the building blocks of the web.'
+                }]
+            }, {
+                title: 'JavaScript Basics',
+                type: 'quiz',
+                materials: []
+            }]
+        }];
+
+        // --- Core Rendering Functions ---
+
+        function renderChapter(chapter, chapterIndex) {
+            const chapterDiv = document.createElement('div');
+            chapterDiv.classList.add('p-6', 'rounded-lg', 'bg-gray-50', 'border', 'border-gray-200', 'space-y-4', 'shadow-sm');
+            chapterDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-700">Chapter ${chapterIndex + 1}</h3>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" class="move-chapter-up text-gray-600 hover:text-gray-800 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <button type="button" class="move-chapter-down text-gray-600 hover:text-gray-800 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <button type="button" class="delete-chapter-btn text-red-500 hover:text-red-700 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Chapter Title</label>
+                    <input type="text" value="${chapter.title}" class="chapter-title form-input" placeholder="e.g., Introduction to Python">
+                </div>
+                <div class="space-y-4">
+                    <h4 class="text-lg font-medium text-gray-600">Sessions</h4>
+                    <div class="sessions-container space-y-4 p-4 rounded-lg bg-gray-100">
+                        <!-- Sessions will be added here -->
+                    </div>
+                    <button type="button" class="add-session-btn btn-secondary text-sm">
+                        <span class="font-bold">+</span> Add Session
+                    </button>
+                </div>
+            `;
+            const sessionsContainer = chapterDiv.querySelector('.sessions-container');
+            if (chapter.sessions) {
+                chapter.sessions.forEach((session, sessionIndex) => {
+                    sessionsContainer.appendChild(renderSession(session, sessionIndex));
+                });
+            }
+            return chapterDiv;
+        }
+
+        function renderSession(session, sessionIndex) {
+            const sessionDiv = document.createElement('div');
+            sessionDiv.classList.add('p-4', 'rounded-lg', 'bg-white', 'border', 'border-gray-200', 'space-y-3', 'shadow-sm');
+            sessionDiv.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <h5 class="text-md font-medium text-gray-700">Session ${sessionIndex + 1}</h5>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" class="move-session-up text-gray-600 hover:text-gray-800 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <button type="button" class="move-session-down text-gray-600 hover:text-gray-800 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <button type="button" class="delete-session-btn text-red-500 hover:text-red-700 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Session Title</label>
+                    <input type="text" value="${session.title}" class="session-title form-input" placeholder="e.g., Data Types">
+                </div>
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Session Type</label>
+                    <select class="session-type form-input">
+                        <option value="lecture" ${session.type === 'lecture' ? 'selected' : ''}>Lecture</option>
+                        <option value="quiz" ${session.type === 'quiz' ? 'selected' : ''}>Quiz</option>
+                    </select>
+                </div>
+                <div class="materials-container space-y-3 p-3 rounded-lg bg-gray-50">
+                    <h6 class="text-sm font-medium text-gray-600">Materials</h6>
+                    <!-- Materials will be added here -->
+                </div>
+                <button type="button" class="add-material-btn btn-secondary text-sm">
+                    <span class="font-bold">+</span> Add Material
+                </button>
+            `;
+            const materialsContainer = sessionDiv.querySelector('.materials-container');
+            if (session.materials) {
+                session.materials.forEach((material, materialIndex) => {
+                    materialsContainer.appendChild(renderMaterial(material, materialIndex));
+                });
+            }
+            return sessionDiv;
+        }
+
+        function renderMaterial(material, materialIndex) {
+            const materialDiv = document.createElement('div');
+            materialDiv.classList.add('p-3', 'rounded-lg', 'bg-white', 'border', 'border-gray-200', 'space-y-2');
+            materialDiv.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <h6 class="text-sm font-medium text-gray-700">Material ${materialIndex + 1}</h6>
+                    <div class="flex items-center space-x-2">
+                            <button type="button" class="move-material-up text-gray-600 hover:text-gray-800 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <button type="button" class="move-material-down text-gray-600 hover:text-gray-800 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <button type="button" class="delete-material-btn text-red-500 hover:text-red-700 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
+                    <input type="text" value="${material.name}" class="material-name form-input" placeholder="e.g., Lecture Slides">
+                </div>
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Material Type</label>
+                    <select class="material-type form-input">
+                        <option value="video" ${material.type === 'video' ? 'selected' : ''}>Video</option>
+                        <option value="text" ${material.type === 'text' ? 'selected' : ''}>Text</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                    <textarea class="material-content form-input" rows="3">${material.content}</textarea>
+                </div>
+            `;
+            return materialDiv;
+        }
+
+        function renderAllContent() {
+            courseContentContainer.innerHTML = ''; // Clear previous content
+            courseContentData.forEach((chapter, index) => {
+                const chapterElement = renderChapter(chapter, index);
+                courseContentContainer.appendChild(chapterElement);
+            });
+            // Re-attach all event listeners
+            attachEventListeners();
+        }
+
+        // --- Event Listeners and Handlers ---
+
+        function attachEventListeners() {
+            // Chapter buttons
+            document.querySelectorAll('.delete-chapter-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    const chapterDiv = e.target.closest('.rounded-lg.bg-gray-50');
+                    const index = Array.from(courseContentContainer.children).indexOf(chapterDiv);
+                    showCustomModal('Are you sure you want to delete this chapter and all its content?', () => {
+                        courseContentData.splice(index, 1);
+                        renderAllContent();
+                    });
+                };
+            });
+            
+            document.querySelectorAll('.add-session-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    const chapterDiv = e.target.closest('.rounded-lg.bg-gray-50');
+                    const chapterIndex = Array.from(courseContentContainer.children).indexOf(chapterDiv);
+                    courseContentData[chapterIndex].sessions.push({ title: '', type: 'lecture', materials: [] });
+                    renderAllContent();
+                };
+            });
+
+            // Session buttons
+            document.querySelectorAll('.delete-session-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    const sessionDiv = e.target.closest('.rounded-lg.bg-white');
+                    const chapterDiv = sessionDiv.closest('.rounded-lg.bg-gray-50');
+                    const chapterIndex = Array.from(courseContentContainer.children).indexOf(chapterDiv);
+                    const sessionIndex = Array.from(chapterDiv.querySelector('.sessions-container').children).indexOf(sessionDiv);
+                    showCustomModal('Are you sure you want to delete this session?', () => {
+                        courseContentData[chapterIndex].sessions.splice(sessionIndex, 1);
+                        renderAllContent();
+                    });
+                };
+            });
+
+            document.querySelectorAll('.add-material-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    const sessionDiv = e.target.closest('.rounded-lg.bg-white');
+                    const chapterDiv = sessionDiv.closest('.rounded-lg.bg-gray-50');
+                    const chapterIndex = Array.from(courseContentContainer.children).indexOf(chapterDiv);
+                    const sessionIndex = Array.from(chapterDiv.querySelector('.sessions-container').children).indexOf(sessionDiv);
+                    courseContentData[chapterIndex].sessions[sessionIndex].materials.push({ name: '', type: 'text', content: '' });
+                    renderAllContent();
+                };
+            });
+
+            // Material buttons
+            document.querySelectorAll('.delete-material-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    const materialDiv = e.target.closest('.rounded-lg.bg-white');
+                    const sessionDiv = materialDiv.closest('.rounded-lg.bg-white');
+                    const chapterDiv = sessionDiv.closest('.rounded-lg.bg-gray-50');
+                    const chapterIndex = Array.from(courseContentContainer.children).indexOf(chapterDiv);
+                    const sessionIndex = Array.from(chapterDiv.querySelector('.sessions-container').children).indexOf(sessionDiv);
+                    const materialIndex = Array.from(sessionDiv.querySelector('.materials-container').children).indexOf(materialDiv);
+                    showCustomModal('Are you sure you want to delete this material?', () => {
+                        courseContentData[chapterIndex].sessions[sessionIndex].materials.splice(materialIndex, 1);
+                        renderAllContent();
+                    });
+                };
+            });
+
+            // Reordering
+            document.querySelectorAll('.move-chapter-up, .move-chapter-down, .move-session-up, .move-session-down, .move-material-up, .move-material-down').forEach(btn => {
+                btn.onclick = (e) => {
+                    const isUp = btn.classList.contains('move-chapter-up') || btn.classList.contains('move-session-up') || btn.classList.contains('move-material-up');
+                    
+                    if (btn.classList.contains('move-chapter-up') || btn.classList.contains('move-chapter-down')) {
+                        const chapterDiv = btn.closest('.rounded-lg.bg-gray-50');
+                        const index = Array.from(courseContentContainer.children).indexOf(chapterDiv);
+                        if ((isUp && index > 0) || (!isUp && index < courseContentData.length - 1)) {
+                            const newIndex = isUp ? index - 1 : index + 1;
+                            [courseContentData[index], courseContentData[newIndex]] = [courseContentData[newIndex], courseContentData[index]];
+                            renderAllContent();
+                        }
+                    } else if (btn.classList.contains('move-session-up') || btn.classList.contains('move-session-down')) {
+                        const sessionDiv = btn.closest('.rounded-lg.bg-white');
+                        const chapterDiv = sessionDiv.closest('.rounded-lg.bg-gray-50');
+                        const chapterIndex = Array.from(courseContentContainer.children).indexOf(chapterDiv);
+                        const sessionIndex = Array.from(chapterDiv.querySelector('.sessions-container').children).indexOf(sessionDiv);
+                        const sessions = courseContentData[chapterIndex].sessions;
+                        if ((isUp && sessionIndex > 0) || (!isUp && sessionIndex < sessions.length - 1)) {
+                            const newSessionIndex = isUp ? sessionIndex - 1 : sessionIndex + 1;
+                            [sessions[sessionIndex], sessions[newSessionIndex]] = [sessions[newSessionIndex], sessions[sessionIndex]];
+                            renderAllContent();
+                        }
+                    } else if (btn.classList.contains('move-material-up') || btn.classList.contains('move-material-down')) {
+                        const materialDiv = btn.closest('.rounded-lg.bg-white');
+                        const sessionDiv = materialDiv.closest('.rounded-lg.bg-white');
+                        const chapterDiv = sessionDiv.closest('.rounded-lg.bg-gray-50');
+                        const chapterIndex = Array.from(courseContentContainer.children).indexOf(chapterDiv);
+                        const sessionIndex = Array.from(chapterDiv.querySelector('.sessions-container').children).indexOf(sessionDiv);
+                        const materials = courseContentData[chapterIndex].sessions[sessionIndex].materials;
+                        const materialIndex = Array.from(sessionDiv.querySelector('.materials-container').children).indexOf(materialDiv);
+
+                        if ((isUp && materialIndex > 0) || (!isUp && materialIndex < materials.length - 1)) {
+                            const newMaterialIndex = isUp ? materialIndex - 1 : materialIndex + 1;
+                            [materials[materialIndex], materials[newMaterialIndex]] = [materials[newMaterialIndex], materials[materialIndex]];
+                            renderAllContent();
+                        }
+                    }
+                };
+            });
+        }
+        
+        // Custom Modal
+        function showCustomModal(message, onConfirm) {
+            const modal = document.getElementById('custom-modal');
+            document.getElementById('modal-message').innerText = message;
+            modal.classList.remove('hidden');
+
+            const confirmBtn = document.getElementById('modal-confirm');
+            const cancelBtn = document.getElementById('modal-cancel');
+            
+            confirmBtn.onclick = () => {
+                onConfirm();
+                modal.classList.add('hidden');
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+
+            cancelBtn.onclick = () => {
+                modal.classList.add('hidden');
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+        }
+
+        addChapterBtn.onclick = () => {
+            courseContentData.push({ title: '', sessions: [] });
+            renderAllContent();
+        };
+
+        function collectFormData() {
+            const collectedData = [];
+            document.querySelectorAll('.rounded-lg.bg-gray-50').forEach(chapterDiv => {
+                const chapterTitle = chapterDiv.querySelector('.chapter-title').value;
+                const chapterData = { title: chapterTitle, sessions: [] };
+                
+                chapterDiv.querySelectorAll('.rounded-lg.bg-white').forEach(sessionDiv => {
+                    const sessionTitle = sessionDiv.querySelector('.session-title').value;
+                    const sessionType = sessionDiv.querySelector('.session-type').value;
+                    const sessionData = { title: sessionTitle, type: sessionType, materials: [] };
+                    
+                    if (sessionType === 'lecture') {
+                        sessionDiv.querySelectorAll('.materials-container > .rounded-lg.bg-white').forEach(materialDiv => {
+                            const materialName = materialDiv.querySelector('.material-name').value;
+                            const materialType = materialDiv.querySelector('.material-type').value;
+                            const materialContent = materialDiv.querySelector('.material-content').value;
+                            sessionData.materials.push({
+                                name: materialName,
+                                type: materialType,
+                                content: materialContent
+                            });
+                        });
+                    }
+                    chapterData.sessions.push(sessionData);
+                });
+                collectedData.push(chapterData);
+            });
+            courseContentJsonInput.value = JSON.stringify(collectedData, null, 2);
+            // This is where you would send the data to a server, but for this demo, we'll just log it.
+        }
+
+        // Initial render
+        document.addEventListener('DOMContentLoaded', () => {
+            renderAllContent();
+        });
+    </script>
+
+</body>
+</html>

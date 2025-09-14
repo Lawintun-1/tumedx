@@ -1,0 +1,36 @@
+<div id="content-wrapper" class="space-y-4">
+  <h3 class="text-xl font-bold text-indigo-700">
+    Quiz Session: {{ session.title }}
+  </h3>
+
+  <!-- Optional: inline rename session title (kept simple) -->
+  <form hx-post="{{ url_for('teacher.update_session') }}"
+        hx-vals='{"session_id": "{{ session.id }}", "session_type": "quiz_session"}'
+        hx-target="#content-wrapper"
+        hx-swap="outerHTML"
+        class="flex items-end gap-2">
+    <div class="flex-1">
+      <label class="block text-sm font-medium text-gray-700">Session Title</label>
+      <input type="text" name="title" value="{{ session.title }}" required
+             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+    </div>
+    <button type="submit"
+            class="px-4 h-10 bg-green-600 text-white rounded-lg hover:bg-green-700">
+      💾 Save and Back
+    </button>
+  </form>
+
+  <!-- The local quiz slot: create button OR quiz item -->
+  <div id="quiz-slot-{{ session.id }}" class="mt-4">
+    {% if quiz %}
+      {% include "_quiz_item.html" %}
+    {% else %}
+      {% include "_quiz_create_button.html" %}
+    {% endif %}
+  </div>
+
+  <!-- Back to chapter edit -->
+  <div class="pt-2">
+   
+  </div>
+</div>

@@ -1,0 +1,142 @@
+[
+    {
+        "id": 1,
+        "question": "Which C++ data type is used to store whole numbers?",
+        "option": [
+            "int",
+            "float",
+            "double",
+            "char"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 2,
+        "question": "What is the typical size of an int data type in C++?",
+        "option": [
+            "2 or 4 bytes",
+            "4 bytes",
+            "8 bytes",
+            "1 byte"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 3,
+        "question": "Which data type stores single-precision floating-point numbers?",
+        "option": [
+            "float",
+            "int",
+            "double",
+            "long"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 4,
+        "question": "What is the typical size of a float data type in C++?",
+        "option": [
+            "4 bytes",
+            "2 bytes",
+            "8 bytes",
+            "1 byte"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 5,
+        "question": "Which data type offers higher precision than float?",
+        "option": [
+            "double",
+            "int",
+            "float",
+            "short"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 6,
+        "question": "What is the typical size of a double data type in C++?",
+        "option": [
+            "8 bytes",
+            "4 bytes",
+            "2 bytes",
+            "16 bytes"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 7,
+        "question": "Which category do int, float, and double belong to in C++?",
+        "option": [
+            "Primitive (Fundamental) Data Types",
+            "Derived Data Types",
+            "User-defined Data Types",
+            "Abstract Data Types"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 8,
+        "question": "Which of these is an example of an integer value?",
+        "option": [
+            "-500",
+            "3.14F",
+            "1.5F",
+            "3.14159"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 9,
+        "question": "Which of these is an example of a float value?",
+        "option": [
+            "3.14F",
+            "10",
+            "-500",
+            "3.1415926535"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 10,
+        "question": "What do C++ data types determine about a variable?",
+        "option": [
+            "Memory size, value range, and applicable operations",
+            "Only memory size",
+            "Only value range",
+            "Only applicable operations"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    }
+]

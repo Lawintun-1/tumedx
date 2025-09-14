@@ -1,0 +1,72 @@
+[
+    {
+        "id": 1,
+        "question": "Which of the following is the correct way to write a single-line comment in C++?",
+        "option": [
+            "// This is a comment",
+            "/* This is a comment */",
+            "# This is a comment",
+            "-- This is a comment"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 2,
+        "question": "What is the entry point function of a C++ program?",
+        "option": [
+            "main()",
+            "start()",
+            "begin()",
+            "execute()"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 3,
+        "question": "Which data type is used to store whole numbers in C++?",
+        "option": [
+            "int",
+            "char",
+            "float",
+            "bool"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 4,
+        "question": "Which operator is used for logical AND in C++?",
+        "option": [
+            "&&",
+            "||",
+            "!",
+            "&"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    },
+    {
+        "id": 5,
+        "question": "What does the ++ operator do in C++?",
+        "option": [
+            "Increments a value by 1",
+            "Decrements a value by 1",
+            "Adds two values",
+            "Multiplies two values"
+        ],
+        "key": "A",
+        "difficulty": "easy",
+        "blooms_level": "Remember",
+        "type": "MCQ"
+    }
+]

@@ -1,0 +1,149 @@
+    {% extends "includes/base.html" %}
+{% import "includes/_macros.html" as macros %}
+
+{% block title %}Create New Course{% endblock %}
+
+{% block head_extras %}
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/all.min.css') }}">
+    <style>
+        /* Custom styles for dynamic content */
+        .chapter-card {
+            border: 2px solid #a78bfa; /* Distinct border for chapters */
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border-radius: 0.75rem;
+            position: relative;
+            background-color: #f3f4f6; /* Light background for chapters */
+        }
+        /* Individual session card (either learning or quiz) */
+        .session-card {
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border-radius: 0.75rem;
+            position: relative;
+            background-color: #ffffff; /* White background for individual sessions */
+        }
+        .material-form-container, .question-generator-container {
+            border: 1px dashed #cbd5e0;
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+            position: relative;
+            background-color: #f7fafc;
+        }
+        .remove-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 1.25rem;
+            color: #ef4444;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .remove-button:hover {
+            color: #dc2626;
+        }
+        .add-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .add-button:hover {
+            background-color: #45a049;
+        }
+        /* Styles for the dynamic session type buttons */
+        .session-type-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .session-type-selector button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div id="content-wrapper"> 
+    <div class="flex flex-col md:flex-row min-h-screen">
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-x-hidden overflow-y-auto p-6">
+        <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Create New Course</h1>
+
+            <form hx-post ="{{ url_for('teacher.create_cover') }}" 
+                    method="POST" 
+                    hx-target= "#content-wrapper"
+                    hx-swap = "outerHTML"
+                    class="space-y-6" 
+            id="create-cover-form">
+            
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700">Course Title</label>
+                    <input type="text" id="title" name="title" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required>
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Course Description</label>
+                    <textarea id="description" name="description" rows="5"
+                                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" ></textarea>
+                </div>
+
+                <!-- Course Chapters Section -->
+                {# <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Course Chapters</h3>
+                        <button type="button" id="add-chapter-button"
+                                class="flex items-center space-x-2 px-4 py-2 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 transition duration-300">
+                            <i class="fas fa-plus"></i>
+                            <span>Create Cover</span>
+                        </button>
+                    </div>
+                    <div id="chapters-container" class="space-y-6">
+                        <!-- Dynamic chapter forms will be added here -->
+                    </div>
+                </div> #}
+
+                <div class="mt-8">
+    <p id="cover-title"><span>Course Title: </span><span>None</span></p>
+    <p id="cover-description"><span>Course Description: </span><span>None</span></p>
+
+    <span id="cover-button-wrapper">
+        <button type="submit" id="cover-submit-button"
+                class="w-full flex justify-center py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+            Create Cover
+        </button>
+    </span>
+</div>
+<p id="cover-message" class="text-red-500 mt-2"></p>
+
+            </form>
+        </div>
+        
+        <div id="cover-response"></div>
+        <div id="chapters-anchor"></div>
+</main>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" integrity="sha384-Akqfrbj/HpNVo8k11SXBb6TlBWmXXlYQrCSqEWmyKJe+hDm3Z/B2WVG4smwBkRVm" crossorigin="anonymous"></script>
+    {# <script src="{{ url_for('static', filename='js/create_course.js') }}"></script> #}
+    {# <script src="{{ url_for('static', filename='js/main.js') }}"> </script> #}
+{% endblock %}

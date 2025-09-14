@@ -1,0 +1,24 @@
+<div id="quiz-slot-{{ session.id }}" class="border rounded-lg p-4 bg-white shadow">
+  <div class="flex items-center justify-between">
+    <div>
+      <h4 class="font-semibold text-lg">{{ quiz.name }}</h4>
+      <p class="text-sm text-gray-600">Type: {{ quiz.type }}</p>
+    </div>
+    <div class="flex gap-2">
+      <button hx-post="{{ url_for('teacher.edit_quiz') }}"
+              hx-vals='{"quiz_id": "{{ quiz.id }}"}'
+              hx-target="#content-wrapper"
+              hx-swap="outerHTML"
+              class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">
+        ✏️ Edit
+      </button>
+      <button hx-post="{{ url_for('teacher.delete_quiz') }}"
+              hx-vals='{"quiz_id": "{{ quiz.id }}"}'
+              hx-target="#quiz-slot-{{ session.id }}"
+              hx-swap="outerHTML"
+              class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700">
+        🗑 Delete
+      </button>
+    </div>
+  </div>
+</div>
