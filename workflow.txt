@@ -1,0 +1,2896 @@
+flask db init
+flask db migrate -m 'sometext'
+flask db upgrade
+rm -rf migrations/version/*.py
+drop table alembic_versions
+cli.py (custom click flask)
+flask create-admin
+#====================================
+
+
+
+
+
+ChatGPT said:
+
+Ah! I understand exactly what you want — you want per-chapter “first attempt” tracking in LearningCurve, but only allow a new attempt if the chapter hasn’t been fully completed yet (all sessions with zero errors). Progress still exists but its percentage can be ignored — the real record is in LearningCurve. Here’s a clean way to implement it.
+
+1️⃣ Algorithm / Logic
+
+Get all Progress rows for the chapter for this student:
+
+progress_rows = Progress.query.filter_by(
+    enrollment_id=enrollment.id,
+    course_id=course.id,
+    chapter_id=chapter.id
+).all()
+
+Check if all sessions are completed with zero errors:
+
+all_completed = all(p.completed for p in progress_rows)
+
+
+
+    Check last attempt in LearningCurve for this chapter:
+
+
+    last_attempt = LearningCurve.query.filter_by(
+    enrollment_id=enrollment.id,
+    course_id=course.id,
+    chapter_id=chapter.id
+).order_by(LearningCurve.attempt_number.desc()).first()
+
+
+If last_attempt exists and last_attempt.error_count == 0 → do not create a new row.
+
+Otherwise → create a new LearningCurve row (increment attempt_number if last attempt exists, else 1).
+
+Update Progress.completed for all sessions only when all session errors = 0:
+
+if all_errors_in_chapter == 0:
+    for p in progress_rows:
+        p.completed = True
+    db.session.commit()
+
+
+Keep attempt_number = 1 per chapter for first attempts until all sessions are completed. Only increment for second attempt if chapter is retried.
+
+
+# 1. Extract all progress for chapter
+progress_rows = Progress.query.filter_by(
+    enrollment_id=enrollment.id,
+    course_id=course.id,
+    chapter_id=chapter.id
+).all()
+
+# 2. Calculate errors in this attempt
+current_errors = sum(session_errors.values())  # session_errors = {session_id: errors}
+
+# 3. Check last attempt
+last_attempt = LearningCurve.query.filter_by(
+    enrollment_id=enrollment.id,
+    course_id=course.id,
+    chapter_id=chapter.id
+).order_by(LearningCurve.attempt_number.desc()).first()
+
+if last_attempt and last_attempt.error_count == 0:
+    # chapter already perfect, no new row
+    pass
+else:
+    # create new attempt row
+    attempt_number = 1 if not last_attempt else last_attempt.attempt_number + 1
+    learning_curve = LearningCurve(
+        enrollment_id=enrollment.id,
+        course_id=course.id,
+        chapter_id=chapter.id,
+        attempt_number=attempt_number,
+        error_count=current_errors
+    )
+    db.session.add(learning_curve)
+    db.session.commit()
+
+# 4. Update completed for all sessions if errors == 0
+if current_errors == 0:
+    for p in progress_rows:
+        p.completed = True
+    db.session.commit()
+
+
+
+3️⃣ Key Points
+
+Only LearningCurve.error_count changes per attempt; attempt_number is tracked properly.
+
+Progress.completed changes only when all sessions in chapter are error-free.
+
+Second attempt only recorded if last attempt had errors.
+
+You don’t need to change Progress columns, JSON, or percentage — LearningCurve stores all critical info.
+
+Can easily generate learning curve charts from LearningCurve for teacher/student.
+
+If you want, I can draft the full backend check_quiz / submit logic that calculates errors per session, updates LearningCurve, and updates Progress.completed exactly in this way.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#======================================
+from flask import Flask, render_template, request, redirect, url_for
+from werkzeug.utils import secure_filename
+import os
+# Other necessary imports for the Blogger API will go here
+
+# Configure your Flask app
+app = Flask(__name__)
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# You may want to set a maximum file size for security
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16 MB limit
+
+# Function to check allowed file extensions
+ALLOWED_EXTENSIONS = {'txt', 'png', 'jpg', 'jpeg', 'gif'}
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        # Check if the post request has the file part
+        if 'file' not in request.files:
+            return redirect(request.url)
+        file = request.files['file']
+        # If the user does not select a file, the browser submits an
+        # empty file without a filename.
+        if file.filename == '':
+            return redirect(request.url)
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            
+            # Here, call the function to post to Blogspot
+            # Example: post_to_blogspot(filepath, request.form['post_title'])
+            
+            return 'File uploaded and post requested successfully!'
+    
+    return render_template('upload.html')
+
+if __name__ == '__main__':
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+    app.run(debug=True)
+
+
+
+# A new function in app.py for posting
+def post_to_blogspot(filepath, post_title):
+    # Load credentials and build the service
+    creds = None
+    # The file token.json stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first time.
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+
+    service = build('blogger', 'v3', credentials=creds)
+    
+    # Read the text or handle the image
+    if filepath.endswith('.txt'):
+        with open(filepath, 'r') as f:
+            content = f.read()
+    elif filepath.endswith(tuple(ALLOWED_EXTENSIONS)):
+        # For images, you need to upload it somewhere (like Google Photos, Drive)
+        # or embed it using data URI, and then include it in the HTML content.
+        # Direct image upload to Blogger via API is not straightforward.
+        # For this example, we will just use a placeholder.
+        content = f"<img src='{filepath}' alt='Uploaded image'><p>...</p>"
+
+    # Create the post body
+    post_body = {
+        'kind': 'blogger#post',
+        'blog': {'id': 'YOUR_BLOG_ID'}, # Replace with your Blog ID
+        'title': post_title,
+        'content': content
+    }
+
+    # Make the API call to create the post
+    try:
+        response = service.posts().insert(blogId='YOUR_BLOG_ID', body=post_body).execute()
+        print('Post created successfully:', response['url'])
+    except Exception as e:
+        print('An error occurred:', e)
+
+
+pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+<!doctype html>
+<html>
+<head>
+    <title>Post to Blogspot</title>
+</head>
+<body>
+    <h1>Upload a file and post to Blogspot</h1>
+    <form method=post enctype=multipart/form-data>
+      <input type="text" name="post_title" placeholder="Enter post title"><br><br>
+      <input type=file name=file><br><br>
+      <input type=submit value=Post>
+    </form>
+</body>
+</html>
+
+
+
+#================== This is my db structure from models.py ===============
+
+class Session(db.Model):
+    """Represents a session within a chapter."""
+    __tablename__ = 'sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    session_type = db.Column(db.String(50), default='lecture', nullable=False)
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'), nullable=False)
+    # --- ADDED: The missing 'order' column for sessions ---
+    order = db.Column(db.Integer, default=0, nullable=False)
+
+    # Relationships
+    # Changed 'lazy='dynamic'' to 'lazy='selectin''.
+    # Similarly, when loading a session, you'll likely want its materials.
+    materials = db.relationship('Material', backref='session', lazy='selectin', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f'<Session {self.title}>'
+
+class Material(db.Model):
+    """Represents learning material within a session."""
+    __tablename__ = 'materials'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=False, default='text')
+    content = db.Column(db.Text)
+    session_id = db.Column(db.Integer, db.ForeignKey('sessions.id'), nullable=False)
+
+    def __repr__(self):
+        return f'<Material {self.name}>'
+
+class Quiz(db.Model):
+    __tablename__ = 'quizzes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # mcq, TF, Blank
+
+    # Store quiz questions
+    question = db.Column(MutableDict.as_mutable(db.JSON), nullable=False, default={})
+    option = db.Column(MutableDict.as_mutable(db.JSON), nullable=False, default={})
+    key = db.Column(MutableDict.as_mutable(db.JSON), nullable=False, default={})
+
+    # New fields
+    difficulty = db.Column(MutableDict.as_mutable(db.JSON), nullable=False, default={})
+    blooms_level = db.Column(MutableDict.as_mutable(db.JSON), nullable=False, default={})
+
+    session_id = db.Column(db.Integer, db.ForeignKey('sessions.id'), nullable=False)
+    session = db.relationship(
+        'Session',
+        backref=db.backref('quizzes', lazy='selectin', cascade='all, delete-orphan')
+    )
+
+    def __repr__(self):
+        return f'<Quiz {self.name} Type: {self.type} Session_id: {self.session_id} Session: {self.session}>'
+#=================================================================================================================
+
+
+How to get quiz data ?
+I had only course_id and session_id like this 
+
+#========================================
+course = Course.query.get_or_404(course_id)
+session = Session.query.get_or_404(session_id)
+quiz = Quiz.query. ? ? ? ? 
+#==========================================
+
+
+
+
+
+Python data types are classifications that define the kind of values a variable can hold and the operations that can be performed on them. Python automatically assigns a data type based on the value assigned to a variable, making it a dynamically typed language.
+Here are the main built-in data types in Python:
+Numeric Types:
+int: Integers (whole numbers, positive or negative).
+float: Floating-point numbers (numbers with a decimal point).
+complex: Complex numbers (numbers with a real and imaginary part, e.g., 1 + 2j).
+Text Type:
+str: Strings (sequences of characters enclosed in single or double quotes).
+Sequence Types:
+list: Ordered, mutable collections of items (enclosed in square brackets []).
+tuple: Ordered, immutable collections of items (enclosed in parentheses ()).
+range: An immutable sequence of numbers, often used in loops.
+Mapping Type:
+dict: Dictionaries (unordered collections of key-value pairs, enclosed in curly braces {}).
+Set Types:
+set: Unordered collections of unique items (enclosed in curly braces {}).
+frozenset: Immutable versions of sets.
+Boolean Type:
+bool: Boolean values (True or False).
+Binary Types:
+bytes: Immutable sequences of bytes.
+bytearray: Mutable sequences of bytes.
+memoryview: A view of another object's memory.
+None Type:
+NoneType: Represents the absence of a value, with None being the only value of this type.
+
+
+teacher_id = current_user.id 
+file_name = "question" + str(teacher_id) + ".json" 
+
+
+@teacher_bp.route("/generate_quiz_questions", methods=["POST"])
+@login_required
+def generate_quiz_questions():
+    import requests, os, re, json
+
+    session_id = request.form.get("session_id")
+    quiz_id = request.form.get("quiz_id")
+    content = request.form.get("content")
+    question_type = request.form.get("question_type")
+    question_count = request.form.get("question_count")
+    difficulty = request.form.get("difficulty")
+    blooms_level = request.form.get("bloom_level")
+
+    # --- Construct the prompt with exact JSON pattern ---
+    prompt = f""" You are special quiz generating teacher . 
+The following content would be used for generating questions : 
+
+Respond ONLY in this JSON array format (do NOT include any extra text): 
+
+============= Specific info ===================
+Question count : {question_count}
+Question type : {question_type}
+Difficulty: {difficulty}
+Bloom's level: {blooms_level}
+=============================================
+
+Before generating , you must read it .
+
+Notic : You don't need all type of questions to be generated , this is sample for future and current question type pattern that are important so that to remember it, I will provide you this pattern format in every conversation.   
+for MCQ 
+[
+  { "question_number" : "....",
+    "question": "...",
+    "option": ["option1", "option2", "option3", "option4"],
+    "key": "...",
+    "difficulty": "...",
+    "bloom_level": "...",
+  },
+  ...
+  { "question_number" : "....",
+    "question": "...",
+    "option": ["option1", "option2", "option3", "option4"],
+    "key": "...",
+    "difficulty": "...",
+    "bloom_level": "...",
+  }
+]
+
+for True/False
+[
+  { "question_number" : "....",
+    "question": "...",
+    "option": ["True","False"],
+    "key": "...",
+    "difficulty": "...",
+    "bloom_level": "...",
+  },
+  ...
+  { "question_number" : "....",
+    "question": "...",
+    "option": ["True","False"],
+    "key": "...",
+    "difficulty": "...",
+    "bloom_level": "...",
+  }
+]
+
+for Blank
+[
+  { "question_number" : "....",
+    "question": "...",
+    "key": "...",
+    "difficulty": "...",
+    "bloom_level": "...",
+  },
+  ...
+  { "question_number" : "....",
+    "question": "...",
+    "key": "...",
+    "difficulty": "...",
+    "bloom_level": "...",
+  }
+]
+
+Respond ONLY in this JSON array format (do NOT include any extra text).
+
+===========content============
+Use this content : {content}
+"""
+
+    API_URL = os.getenv("OPENROUTER_API_URL")
+    HEADERS = {
+        "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+
+    # Example generation configuration
+    generation_config = {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "max_tokens": 1500
+    }
+
+    payload = {
+        "model": os.getenv("OPENROUTER_MODEL"),
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant that strictly outputs JSON."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": generation_config["temperature"],
+        "top_p": generation_config["top_p"],
+        "top_k": generation_config["top_k"],
+        "max_tokens": generation_config["max_tokens"]
+    }
+
+    try:
+        response = requests.post(API_URL, headers=HEADERS, json=payload)
+        print("Status Code:", response.status_code)
+        if response.status_code != 200:
+            return f"<pre style='color:red'>Error response: {response.text}</pre>"
+
+        result = response.json()
+        # Extract content from chat message
+        content_text = result["choices"][0]["message"]["content"]
+
+        # Extract JSON array strictly
+        match = re.search(r'\[\s*{.*?}\s*]', content_text, re.DOTALL)
+        if match:
+            json_text = match.group(0)
+        else:
+            json_text = None
+
+        # Show raw AI response
+        html_content = f"""
+        <div class="p-4 bg-gray-100 rounded border border-gray-300 mt-2">
+            <h3 class="font-semibold mb-2">Raw AI Response:</h3>
+            <pre>{content_text}</pre>
+        </div>
+        """
+
+        # Return JSON if valid, else return raw HTML
+        if json_text:
+            try:
+                parsed_questions = json.loads(json_text)
+                return jsonify({
+                    "status": "success",
+                    "questions": parsed_questions,
+                    "raw_ai_response": content_text
+                })
+            except json.JSONDecodeError:
+                return render_template_string(html_content + "<p style='color:red'>JSON parsing failed.</p>")
+        else:
+            return render_template_string(html_content + "<p style='color:red'>No valid JSON array found in AI response.</p>")
+
+    except Exception as e:
+        return f"<pre style='color:red'>Error during API call: {str(e)}</pre>"
+
+
+
+
+
+
+
+
+
+
+
+
+Please check something wrong : the error is no shown in UI anything
+
+My modefied codes are
+
+@teacher_bp.route("/generate_quiz_questions", methods=["POST"])
+@login_required
+def generate_quiz_questions():
+    """
+    Generates quiz questions using an AI model via the OpenRouter API.
+    It handles API response issues, including malformed JSON.
+    """
+    session_id = request.form.get("session_id")
+    quiz_id = request.form.get("quiz_id")
+    content = request.form.get("content")
+    question_type = request.form.get("question_type")
+    question_count = request.form.get("question_count")
+    difficulty = request.form.get("difficulty")
+    blooms_level = request.form.get("bloom_level")
+
+    # --- Prepare prompt ---
+    # The prompt is now more explicit about the expected JSON format.
+    prompt = f"""
+Generate {question_count} {question_type} questions for the following content:
+{content}
+
+Difficulty: {difficulty}
+Bloom's level: {blooms_level}
+
+Please respond ONLY in JSON format, like this example:
+[
+  {{
+    "question": "...",
+    "difficulty": "...",
+    "bloom_level": "...",
+    "options": {{
+      "A": "...",
+      "B": "...",
+      "C": "...",
+      "D": "..."
+    }},
+    "correct_answer": "..."
+  }},
+  ... (for more questions if question_count > 1)
+]
+"""
+    # --- Call OpenRouter API ---
+    API_URL = os.getenv("OPENROUTER_API_URL")
+    HEADERS = {
+        "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": os.getenv("OPENROUTER_MODEL"),
+        "prompt": prompt,
+        "max_tokens": 2000
+    }
+
+    try:
+        response = requests.post(API_URL, headers=HEADERS, json=data)
+    except Exception as e:
+        return jsonify({"error": f"Request failed: {str(e)}"})
+
+    # --- Defensive check for bad status code ---
+    if response.status_code != 200:
+        return jsonify({
+            "error": "OpenRouter request failed",
+            "status_code": response.status_code,
+            "response_text": response.text
+        })
+
+    # --- Process the response ---
+    print("API Response:", response.text)
+
+    try:
+        resp_json = response.json()
+    except json.JSONDecodeError:
+        return jsonify({
+            "error": "Failed to parse JSON from API response. The top-level response was not a valid JSON object.",
+            "raw_response_text": response.text
+        })
+
+    # --- Extract text from the choices and clean it ---
+    choices = resp_json.get("choices", [])
+    ai_text = ""
+    if choices and isinstance(choices, list):
+        ai_text = choices[0].get("text", "")
+
+    # Clean the raw text using a regular expression to find the JSON array.
+    match = re.search(r'\[.*\]', ai_text.strip(), re.DOTALL)
+    if not match:
+        return jsonify({
+            "error": "AI response did not contain a valid JSON array within the text.",
+            "raw_ai_response": ai_text
+        })
+    
+    clean_ai_text = match.group(0)
+
+    # --- Attempt to parse the cleaned text as JSON ---
+    try:
+        quiz_data = json.loads(clean_ai_text)
+    except json.JSONDecodeError as e:
+        return jsonify({
+            "error": f"Cleaned AI response is not valid JSON. JSON parsing failed: {str(e)}",
+            "raw_ai_response": ai_text,
+            "cleaned_text_attempt": clean_ai_text
+        })
+    
+    if not isinstance(quiz_data, list):
+        return jsonify({
+            "error": "The parsed JSON is not a list of questions.",
+            "parsed_data": quiz_data
+        })
+
+    # --- Return the parsed quiz data ---
+    return jsonify({
+        "status": "success",
+        "questions": quiz_data
+    })
+
+
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+the terminal return is : 
+
+
+127.0.0.1 - - [05/Sep/2025 11:50:50] "POST /teacher/edit_quiz HTTP/1.1" 200 -
+API Response: 
+                  
+{"id":"gen-1757049663-WIiRqV45zMb2jl1zT1JD","provider":"Chutes","model":"tngtech/deepseek-r1t-chimera:free","object":"chat.completion","created":1757049664,"choices":[{"logprobs":null,"finish_reason":"stop","native_finish_reason":"stop","text":"* Make sure the correct_answer is one of the options (A, B, C, D)\n* Also, make sure your answers are accurate and from the provided material\n* Understand the provided content carefully to ensure question accuracy\n* Ensure each question ends with a question mark \"?\"\n```json\n[\n  {\n    \"question\": \"What is a Java interface primarily used for?\",\n    \"difficulty\": \"easy\",\n    \"bloom_level\": \"Remember\",\n    \"options\": {\n      \"A\": \"To provide method implementations for a class\",\n      \"B\": \"To serve as a blueprint or guide for a class by listing required methods\",\n      \"C\": \"To create objects directly\",\n      \"D\": \"To store data variables with changing values\"\n    },\n    \"correct_answer\": \"B\"\n  }\n]\n```","reasoning":null}],"usage":{"prompt_tokens":169,"completion_tokens":172,"total_tokens":341}}
+127.0.0.1 - - [05/Sep/2025 11:51:10] "POST /teacher/generate_quiz_questions HTTP/1.1" 200 -
+
+#===============================================================
+
+So that api can response to model but ui not show anything . Can you solve me ? i want to see it returning text are in the UI 
+
+
+
+Please check something wrong 
+
+I got in terminal :
+
+c06_tumedx/app/teacher/question.json
+ * Debugger is active!
+ * Debugger PIN: 487-975-530
+127.0.0.1 - - [05/Sep/2025 11:31:11] "GET /teacher/edit_course/3 HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 11:31:11] "GET /static/css/font.min.css HTTP/1.1" 304 -
+127.0.0.1 - - [05/Sep/2025 11:31:11] "GET /static/css/tailwind.min.css HTTP/1.1" 304 -
+127.0.0.1 - - [05/Sep/2025 11:31:11] "GET /static/img/tumedx_logo.png HTTP/1.1" 304 -
+127.0.0.1 - - [05/Sep/2025 11:31:11] "GET /static/css/all.min.css HTTP/1.1" 304 -
+127.0.0.1 - - [05/Sep/2025 11:31:14] "POST /teacher/edit_chapter HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 11:31:16] "POST /teacher/edit_session HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 11:31:18] "POST /teacher/edit_quiz HTTP/1.1" 200 -
+API Response:          
+
+         
+{"id":"gen-1757048491-hfsvSVcHi8EER43yHThz","provider":"Chutes","model":"tngtech/deepseek-r1t-chimera:free","object":"chat.completion","created":1757048492,"choices":[{"logprobs":null,"finish_reason":"stop","native_finish_reason":"stop","text":"  \"difficulty\": \"easy\",\n  \"Bloom's_level\": \"Remember\",\n  \"question\": \"What type of programming language is C++?\",\n  \"options\": {\n    \"A\": \"Functional\",\n    \"B\": \"Object-oriented\",\n    \"C\": \"Procedural\",\n    \"D\": \"Scripting\"\n  \"correct_answer\": \"B\"\n}Difficulty: easy\nBloom's level: Remember\n\nPlease respond in JSON format.","reasoning":null}],"usage":{"prompt_tokens":92,"completion_tokens":96,"total_tokens":188}}
+127.0.0.1 - - [05/Sep/2025 11:31:36] "POST /teacher/generate_quiz_questions HTTP/1.1" 200 -
+
+
+My routes.py definition :
+
+@teacher_bp.route("/generate_quiz_questions", methods=["POST"])
+@login_required
+def generate_quiz_questions():
+    session_id = request.form.get("session_id")
+    quiz_id = request.form.get("quiz_id")
+    content = request.form.get("content")
+    question_type = request.form.get("question_type")
+    question_count = request.form.get("question_count")
+    difficulty = request.form.get("difficulty")
+    blooms_level = request.form.get("bloom_level")
+
+    # --- Prepare prompt ---
+    prompt = f"""
+Generate {question_count} {question_type} questions for the following content:
+{content}
+
+Difficulty: {difficulty}
+Bloom's level: {blooms_level}
+
+Please respond in JSON format.
+"""
+
+    # --- Call OpenRouter API ---
+    import requests, os
+    API_URL = os.getenv("OPENROUTER_API_URL")
+    HEADERS = {
+        "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": os.getenv("OPENROUTER_MODEL"),
+        "prompt": prompt,
+        "max_tokens": 1000
+    }
+
+    try:
+        response = requests.post(API_URL, headers=HEADERS, json=data)
+    except Exception as e:
+        return jsonify({"error": f"Request failed: {str(e)}"})
+
+    # --- Defensive check ---
+    if response.status_code != 200:
+        return jsonify({
+            "error": "OpenRouter request failed",
+            "status_code": response.status_code,
+            "response_text": response.text
+        })
+
+    try:
+        resp_json = response.json()
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to parse JSON",
+            "raw_response": response.text,
+            "exception": str(e)
+        })
+
+    # --- Extract text safely ---
+    choices = resp_json.get("choices", [])
+    ai_text = ""
+    if choices and isinstance(choices, list):
+        ai_text = choices[0].get("text", "")
+
+    print("API Response:", response.text)
+
+    # --- Return raw AI response ---
+    return jsonify({
+        "raw_ai_response": ai_text,
+        "full_response_json": resp_json
+    })
+#==================================
+
+I want to see raw data because the json format can not returned from the api 
+
+
+
+
+
+Check following logs . In this case, I didn't click the delete button, I clicked the edit button but the error log is something wrong . The app assume me that I clicked the delete chapter, can you find the logical error in my app functionality.
+
+Please check what are wrong : 
+
+the error message is 
+
+requests.exceptions.MissingSchema: Invalid URL 'None': No scheme supplied. Perhaps you meant https://None?
+127.0.0.1 - - [05/Sep/2025 11:17:32] "POST /teacher/generate_quiz_questions HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask_login/utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/app/teacher/routes.py", line 715, in generate_quiz_questions
+    response = requests.post(API_URL, headers=HEADERS, json=data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/requests/sessions.py", line 575, in request
+    prep = self.prepare_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/requests/sessions.py", line 484, in prepare_request
+    p.prepare(
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/requests/models.py", line 367, in prepare
+    self.prepare_url(url, params)
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/requests/models.py", line 438, in prepare_url
+    raise MissingSchema(
+requests.exceptions.MissingSchema: Invalid URL 'None': No scheme supplied. Perhaps you meant https://None?
+
+#====================================
+
+routes.py is 
+
+
+@teacher_bp.route("/generate_quiz_questions", methods=["POST"])
+@login_required
+def generate_quiz_questions():
+    session_id = request.form.get("session_id")
+    quiz_id = request.form.get("quiz_id")
+    content = request.form.get("content")
+    question_type = request.form.get("question_type")
+    question_count = request.form.get("question_count")
+    difficulty = request.form.get("difficulty")
+    blooms_level = request.form.get("bloom_level")
+
+    # --- Prepare prompt ---
+    prompt = f"""
+    Generate {question_count} {question_type} questions for the following content:
+    {content}
+
+    Difficulty: {difficulty}
+    Bloom's level: {blooms_level}
+
+    Please respond in JSON format if possible.
+    """
+
+    # --- Call OpenRouter API ---
+    import requests, os
+    API_URL = os.getenv("OPENROUTER_API_URL")
+    HEADERS = {
+        "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": os.getenv("OPENROUTER_MODEL"),
+        "prompt": prompt,
+        "max_tokens": 1000
+    }
+    response = requests.post(API_URL, headers=HEADERS, json=data)
+    
+    if response.status_code != 200:
+        return jsonify({
+            "error": "OpenRouter request failed",
+            "status_code": response.status_code,
+            "response_text": response.text
+        })
+
+    # --- Return raw AI response for inspection ---
+    ai_text = response.json().get("choices", [{}])[0].get("text", "")
+    return jsonify({
+        "raw_ai_response": ai_text
+    })
+
+
+@teacher_bp.route('/cancel_edit_quiz', methods=["POST"])
+@login_required
+def cancel_edit_quiz():
+    session_id = request.form.get("session_id")
+    session = Session.query.get(session_id)
+    if not session:
+        return f''' Not Session id '''
+    course = session.chapter.course
+    quiz = Quiz.query.filter_by(session_id=session.id).first()
+    return render_template("_session_edit_form_for_quiz.html", session=session, course=course, quiz=quiz)
+
+#==================================================
+
+
+
+
+
+
+
+from dotenv import load_dotenv
+from flask import render_template, url_for, flash, redirect, abort, request, jsonify
+from flask_login import login_required, current_user
+from sqlalchemy.orm import selectinload
+from app import db 
+from . import teacher_bp # Assuming your blueprint is named teacher_bp
+from flask_wtf.csrf import generate_csrf 
+from flask_login import login_required, current_user
+from app.teacher import teacher_bp
+from app.models import db, User, Course, Chapter, Session, Material, Quiz
+import json
+import os
+from urllib.parse import urlparse, parse_qs
+import requests
+from flask import jsonify
+
+
+load_dotenv()
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+API_URL = os.getenv("OPENROUTER_API_URL")
+MODEL = os.getenv("OPENROUTER_MODEL")
+HEADERS = {
+    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+    "Content-Type": "application/json"
+}
+
+
+
+
+
+
+
+
+the routes.py logic is as below
+
+@teacher_bp.route("/create_quiz", methods=["POST"])
+@login_required
+def create_quiz():
+    session_id = request.form.get("session_id")
+    if not session_id:
+        return '<p class="text-red-500">Session ID is missing!</p>', 400
+
+    session = Session.query.get(session_id)
+    if not session or session.session_type != "quiz_session":
+        return '<p class="text-red-500">Invalid quiz session!</p>', 400
+
+    # If a quiz already exists, just render the item (no duplicates)
+    existing = Quiz.query.filter_by(session_id=session.id).first()
+    if existing:
+        return render_template("_quiz_item.html", session=session, quiz=existing)
+
+    quiz = Quiz(
+    name="New Quiz",
+    type="mcq",
+    question={},  # empty dict
+    option={},   # empty dict
+    key={},       # empty dict
+    session_id=session.id
+)
+    db.session.add(quiz)
+    db.session.commit()
+
+    # Return only the quiz item block so htmx swaps the local container
+    return render_template("_quiz_item.html", session=session, quiz=quiz)
+
+
+
+
+@teacher_bp.route("/edit_quiz", methods=["POST"])
+@login_required
+def edit_quiz():
+    quiz_id = request.form.get("quiz_id")
+    if not quiz_id:
+        return '<p class="text-red-500">Quiz ID is missing!</p>', 400
+
+    quiz = Quiz.query.get(quiz_id)
+    if not quiz:
+        return '<p class="text-red-500">Quiz not found!</p>', 404
+
+    # Standalone quiz editing page (replace #content-wrapper)
+    return render_template("_quiz_edit_form.html", quiz=quiz, session=quiz.session)
+
+
+
+#==========================================================================
+
+_quiz_item.html
+
+<div id="quiz-slot-{{ session.id }}" class="border rounded-lg p-4 bg-white shadow">
+  <div class="flex items-center justify-between">
+    <div>
+      <h4 class="font-semibold text-lg">{{ quiz.name }}</h4>
+      <p class="text-sm text-gray-600">Type: {{ quiz.type }}</p>
+    </div>
+    <div class="flex gap-2">
+      <button hx-post="{{ url_for('teacher.edit_quiz') }}"
+              hx-vals='{"quiz_id": "{{ quiz.id }}"}'
+              hx-target="#content-wrapper"
+              hx-swap="outerHTML"
+              class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">
+        ✏️ Edit
+      </button>
+      <button hx-post="{{ url_for('teacher.delete_quiz') }}"
+              hx-vals='{"quiz_id": "{{ quiz.id }}"}'
+              hx-target="#quiz-slot-{{ session.id }}"
+              hx-swap="outerHTML"
+              class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700">
+        🗑 Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+
+_quiz_create_button.html 
+
+<div id="quiz-slot-{{ session.id }}">
+  <button hx-post="{{ url_for('teacher.create_quiz') }}"
+          hx-vals='{"session_id": "{{ session.id }}"}'
+          hx-target="#quiz-slot-{{ session.id }}"
+          hx-swap="outerHTML"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+    ➕ Create Quiz
+  </button>
+</div>
+
+_session_edit_form_for_quiz.html
+
+<div id="content-wrapper" class="space-y-4">
+  <h3 class="text-xl font-bold text-indigo-700">
+    Quiz Session: {{ session.title }}
+  </h3>
+
+  <!-- Optional: inline rename session title (kept simple) -->
+  <form hx-post="{{ url_for('teacher.update_session') }}"
+        hx-vals='{"session_id": "{{ session.id }}", "session_type": "quiz_session"}'
+        hx-target="#content-wrapper"
+        hx-swap="outerHTML"
+        class="flex items-end gap-2">
+    <div class="flex-1">
+      <label class="block text-sm font-medium text-gray-700">Session Title</label>
+      <input type="text" name="title" value="{{ session.title }}" required
+             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+    </div>
+    <button type="submit"
+            class="px-4 h-10 bg-green-600 text-white rounded-lg hover:bg-green-700">
+      💾 Save Title
+    </button>
+  </form>
+
+  <!-- The local quiz slot: create button OR quiz item -->
+  <div id="quiz-slot-{{ session.id }}" class="mt-4">
+    {% if quiz %}
+      {% include "_quiz_item.html" %}
+    {% else %}
+      {% include "_quiz_create_button.html" %}
+    {% endif %}
+  </div>
+
+  <!-- Back to chapter edit -->
+  <div class="pt-2">
+    <button type="button"
+            hx-post="{{ url_for('teacher.cancel_edit_material') }}"
+            hx-vals='{"session_id": "{{ session.id }}"}'
+            hx-target="#content-wrapper"
+            hx-swap="outerHTML"
+            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+      ↩️ Back
+    </button>
+  </div>
+</div>
+
+
+
+
+
+
+
+127.0.0.1 - - [04/Sep/2025 08:51:32] "POST /teacher/edit_chapter HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask_login/utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/app/teacher/routes.py", line 178, in edit_chapter
+    return render_template("_chapter_edit_form.html", chapter=chapter)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/templating.py", line 150, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/templating.py", line 131, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "/home/lawintun/tc06_tumedx/app/teacher/templates/_chapter_edit_form.html", line 39, in top-level template code
+    {% include '_sessions_list.html' %}
+  File "/home/lawintun/tc06_tumedx/app/teacher/templates/_sessions_list.html", line 4, in top-level template code
+    {% include "_sessions_item.html" %}
+  File "/home/lawintun/tc06_tumedx/app/teacher/templates/_sessions_item.html", line 15, in top-level template code
+    <button hx-post="{{ url_for('teacher.delete_session_standalone') }}"
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 1121, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/app.py", line 1110, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/werkzeug/routing/map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'teacher.delete_session_standalone'. Did you mean 'teacher.delete_chapter_standalone' instead?
+
+
+Please check to correctly render the _session_edit_form.html 
+
+in the other definition
+#========================
+
+@teacher_bp.route("/edit_session", methods=["POST"])
+@login_required
+def edit_session():
+    session_id = request.form.get("session_id")
+    if not session_id:
+        return '<p class="text-red-500">Session ID is missing!</p>', 400
+
+    session = Session.query.get(session_id)
+    if not session:
+        return '<p class="text-red-500">Session not found!</p>', 404
+
+    course = session.chapter.course
+
+    return render_template("_session_edit_form.html", session=session, course=course)
+
+#===================
+
+now your providing definition
+
+#====================
+
+@teacher_bp.route("/cancel_edit_material", methods=["POST"])
+@login_required
+def cancel_edit_material():
+    session_id = request.form.get("session_id")
+    session = Session.query.get(session_id)
+    if not session:
+        return '<p class="text-red-500">Invalid session!</p>', 404
+
+    return render_template("_session_edit_form.html", session=session)
+
+#=======================
+
+
+Please think that materials table model I had is relationship with session_id. There are coulumns id, name , type , content and session_id . In this case, type can be threes in text, video link (youtube) and another link are image link. So that how to valid the type before committing into db, text type is not need any logic but remaining twos need logic . The models.py includes 
+
+#====================================================
+class Session(db.Model):
+    """Represents a session within a chapter."""
+    __tablename__ = 'sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    session_type = db.Column(db.String(50), default='lecture', nullable=False)
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'), nullable=False)
+    # --- ADDED: The missing 'order' column for sessions ---
+    order = db.Column(db.Integer, default=0, nullable=False)
+
+    # Relationships
+    # Changed 'lazy='dynamic'' to 'lazy='selectin''.
+    # Similarly, when loading a session, you'll likely want its materials.
+    materials = db.relationship('Material', backref='session', lazy='selectin', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f'<Session {self.title}>'
+
+class Material(db.Model):
+    """Represents learning material within a session."""
+    __tablename__ = 'materials'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=False, default='text')
+    content = db.Column(db.Text)
+    session_id = db.Column(db.Integer, db.ForeignKey('sessions.id'), nullable=False)
+
+    def __repr__(self):
+        return f'<Material {self.name}>'
+
+#=======================================================
+
+
+Do you understand the models and the purpose? I want to save three types in the learning session withs add materials button. If user click it , the form would be appeared and the field 'name' is 'text' required , the field 'type' is not the real field that should select options [text,video,image] , if text is selected the textarea should be provided and if video is selected , the url field (youtube link validation) should be provided and  if image is selected , the url field should be provided (in this case any image links are not typical pattern I had understood so that all link except youtube must be assumed as image link is suitable i think) ,
+
+
+Aboves are my purpose. Belows are my preferred steps to meet the purposes.
+
+@Now task is to make "add material button" in _session_edit_form.html. Modern UI should be 
+
+@It must be the process material list include and if user clicking it, material item would be created . Item must be edit and delete button should be included like previous work.
+
+@The material edit form should be standalone page and then there is apply the form that above purposes implementation . Modern UI form . (save and cancel button must be included in the material etit form standalone page)  
+
+
+
+
+# Ex list 
+{ 
+    1 : "Thu Zar", 
+    2 : "Yamin Thant",
+    3 : "Yi Mon Paing",
+    4: "May Oo Ko",
+    5 : "Ei Mon Win",
+    6: "Khin Yadanar Phyo",
+}
+
+
+
+
+
+
+
+
+Plese check add_sessions, edit_sessions and delete_session_standalone routes.py 
+
+#====================================================================
+
+
+@teacher_bp.route("/add_session", methods=["POST"])
+@login_required
+def add_session():
+    chapter_id = request.form.get("chapter_id")
+    session_type = request.form.get("session_type", "learning_session")
+
+    if not chapter_id:
+        return '<p class="text-red-500">Chapter ID is missing!</p>', 400
+
+    chapter = Chapter.query.get(chapter_id)
+    if not chapter:
+        return '<p class="text-red-500">Chapter not found!</p>', 404
+
+    # Determine next order
+    max_order = db.session.query(db.func.max(Session.order)).filter_by(chapter_id=chapter.id).scalar()
+    next_order = (max_order or 0) + 1
+
+    # Create session
+    new_session = Session(
+        title=f"New Session {next_order}",
+        session_type=session_type,
+        chapter_id=chapter.id,
+        order=next_order
+    )
+
+    db.session.add(new_session)
+    db.session.commit()
+
+    # Refresh chapter to include the new session
+    chapter = Chapter.query.get(chapter.id)
+
+    # Render session card
+    return render_template("_session_item.html", session=new_session)
+
+@teacher_bp.route("/edit_session", methods=["POST"])
+@login_required
+def edit_session():
+    session_id = request.form.get("session_id")
+    if not session_id:
+        return '<p class="text-red-500">Session ID is missing!</p>', 400
+
+    session = Session.query.get(session_id)
+    if not session:
+        return '<p class="text-red-500">Session not found!</p>', 404
+
+    # Optional: get course data if needed
+    course = session.chapter.course
+
+    # Render the edit form for this session
+    return render_template("_session_edit_form.html", session=session, course=course)
+
+teacher_bp.route("/delete_session_standalone", methods=["POST"])
+@login_required
+def delete_session_standalone():
+    session_id = request.form.get("session_id")
+    if not session_id:
+        return "Invalid session", 400
+
+    session = Session.query.get(chapter_id)
+    if not chapter:
+        return "Session not found", 404
+
+    course = chapter.course
+
+    db.session.delete(chapter)
+    db.session.commit()
+
+    # Refresh the full chapter list after deletion
+    return render_template("_chapters_list.html", course=course)
+
+    #===================================================================
+
+    And then please also check _chapter_edit_form.html, _sessions_list.html, _session_item.html 
+    #===========================
+
+    <div id="content-wrapper">
+    <!-- Chapter Header -->
+    <div class="flex justify-between items-center mb-4 border-b pb-4 border-gray-200">
+        <h3 class="text-xl font-bold text-indigo-700">Chapter {{ chapter.order }}: {{ chapter.title }}</h3>
+    </div>
+
+    <!-- Chapter Title Form -->
+    <form hx-post="{{ url_for('teacher.save_chapter') }}"
+          hx-vals='{"chapter_id": "{{ chapter.id }}"}'
+          hx-target="#content-wrapper"
+          hx-swap="outerHTML"
+          class="mb-6">
+        <label class="block text-sm font-medium text-gray-700">Chapter Title</label>
+        <input type="text" name="title"
+               class="chapter-title-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+               value="{{ chapter.title }}" required>
+
+        <div class="mt-4 flex justify-end gap-2">
+            <button type="submit"
+                    class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                Save Title
+            </button>
+        
+    
+            <button type="button"
+                    hx-post="{{ url_for('teacher.cancel_edit_chapter') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}"}'
+                    hx-target="#content-wrapper"
+                    hx-swap="outerHTML"
+                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-coral-600 transition">
+                Cancel
+            </button>
+        </div>
+             <!-- Sessions Section -->
+    <div class="chapter-sessions-wrapper border-t pt-4">
+        <h4 class="text-lg font-semibold text-gray-800 mb-2">Sessions</h4>
+
+        <!-- Sessions List -->
+        {% include '_sessions_list.html' %}
+       <!-- <div class="chapter-sessions-container space-y-2">
+            {% for session in chapter.sessions %}
+                {% include "_session_item.html" %}
+            {% else %}
+                <p class="text-gray-500">No sessions yet. Add one below!</p>
+            {% endfor %}
+        </div> -->
+
+        <!-- Add Session Buttons -->
+        <div class="mt-4 flex gap-2">
+            <button type="button"
+                    hx-post="{{ url_for('teacher.add_session') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}", "session_type": "learning_session"}'
+                    hx-target="#sessions-list"
+                    hx-swap="beforeend"
+                    class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                ➕ Add Learning Session
+            </button>
+
+            <button type="button"
+                    hx-post="{{ url_for('teacher.add_session') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}", "session_type": "quiz_session"}'
+                    hx-target="#sessions-list"
+                    hx-swap="beforeend"
+                    class="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition">
+                ➕ Add Quiz Session
+            </button>
+        </div>
+    </div>
+        
+    </form>
+
+</div>
+#==================================================================
+_sessions_list.html 
+#=====================
+<div id="sessions-list">
+    {% if chapter.sessions %}
+        {% for session in chapter.sessions %}
+            {% include "_sessions_item.html" %}
+        {% endfor %}
+    {% else %}
+        <p class="text-gray-500">No chapters yet. Add one!</p>
+    {% endif %}
+</div>
+#=============================
+
+_session_item.html
+#==================
+<div id="session-{{ session.id }}" class="p-3 bg-gray-100 rounded mb-2 flex justify-between items-center">
+    <div>
+        <p class="font-medium">{{ session.order }}. {{ session.title }} 
+           <span class="text-sm text-gray-500">({{ session.session_type.replace('_', ' ').title() }})</span>
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <button hx-post="{{ url_for('teacher.edit_session') }}"
+                hx-vals='{"session_id": "{{ session.id }}"}'
+                hx-target="#session-{{ session.id }}"
+                hx-swap="outerHTML"
+                class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+            ✏️ Edit
+        </button>
+        <button hx-post="{{ url_for('teacher.delete_session_standalone') }}"
+                hx-vals='{"session_id": "{{ session.id }}"}'
+                hx-target="#sessions-list" 
+                hx-swap="outerHTML"
+                class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
+            🗑 Delete
+        </button>
+    </div>
+</div>
+
+#====================================
+
+
+
+
+
+
+
+
+
+
+<div class="mt-4 flex gap-2">
+            <button type="button"
+                    hx-post="{{ url_for('teacher.add_session') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}", "session_type": "learning_session"}'
+                    hx-target=".chapter-sessions-container"
+                    hx-swap="beforeend"
+                    class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                ➕ Add Learning Session
+            </button>
+
+
+    <!-- Sessions Section -->
+    <div class="chapter-sessions-wrapper border-t pt-4">
+        <h4 class="text-lg font-semibold text-gray-800 mb-2">Sessions</h4>
+
+        <!-- Sessions List -->
+        <div class="chapter-sessions-container space-y-2">
+            {% for session in chapter.sessions %}
+                {% include "_session_item.html" %}
+            {% else %}
+                <p class="text-gray-500">No sessions yet. Add one below!</p>
+            {% endfor %}
+        </div>
+
+        <!-- Add Session Buttons -->
+        <div class="mt-4 flex gap-2">
+            <button type="button"
+                    hx-post="{{ url_for('teacher.add_session') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}", "session_type": "learning_session"}'
+                    hx-target=".chapter-sessions-container"
+                    hx-swap="beforeend"
+                    class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                ➕ Add Learning Session
+            </button>
+
+            <button type="button"
+                    hx-post="{{ url_for('teacher.add_session') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}", "session_type": "quiz_session"}'
+                    hx-target=".chapter-sessions-container"
+                    hx-swap="beforeend"
+                    class="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition">
+                ➕ Add Quiz Session
+            </button>
+        </div>
+    </div>
+
+
+
+I had encountered the error like this ;
+
+ "File "/home/lawintun/tc06_tumedx/app/teacher/routes.py", line 163, in add_chapter
+    return render_template("_chapters_item.html", course=course, chapter=chapter)
+                                                                         ^^^^^^^^
+NameError: name 'chapter' is not defined. Did you mean: 'Chapter'? "
+
+
+The related definition in routes.py is ;
+
+" @teacher_bp.route("/add_chapter", methods=["POST"])
+@login_required
+def add_chapter():
+    course_id = request.form.get("course_id")
+
+    if not course_id:
+        return '<p class="text-red-500">Course ID is missing!</p>'
+
+    course = Course.query.get(course_id)
+    if not course:
+        return '<p class="text-red-500">Course not found!</p>'
+
+    # Find the next chapter order
+    max_order = db.session.query(db.func.max(Chapter.order)).filter_by(course_id=course.id).scalar()
+    next_order = (max_order or 0) + 1
+
+    # Create new chapter with placeholder title
+    new_chapter = Chapter(
+        title=f"New Chapter {next_order}",
+        course_id=course.id,
+        order=next_order
+    )
+
+    db.session.add(new_chapter)
+    db.session.commit()
+
+    # After saving, return an updated snippet
+    # Refresh course with new chapter included
+    course = Course.query.get(course.id)
+
+    # Render updated chapter list
+    return render_template("_chapters_item.html", course=course, chapter=chapter) "
+
+If i will change the "chapter=chapter" to "chapter=new_chapter" , can it be solved ?
+
+
+we had already 
+
+@teacher_bp.route('/course/<int:course_id>/delete', methods=['POST'])
+@login_required
+def delete_course(course_id):
+    course = Course.query.get_or_404(course_id)
+
+    if course.teacher_id != current_user.id:
+        flash('You are not authorized to delete this course.', 'danger')
+        abort(403)
+    
+    try:
+        # 1. Delete all materials associated with sessions in this course
+        #    We need to get all sessions belonging to all chapters of this course
+        sessions_to_delete = db.session.execute(
+            db.select(Session.id)
+            .join(Chapter)
+            .filter(Chapter.course_id == course.id)
+        ).scalars().all()
+
+        if sessions_to_delete:
+            db.session.execute(db.delete(Material).filter(Material.session_id.in_(sessions_to_delete)))
+
+        # 2. Delete all sessions associated with chapters in this course
+        chapter_ids = db.session.execute(
+            db.select(Chapter.id)
+            .filter(Chapter.course_id == course.id)
+        ).scalars().all()
+
+        if chapter_ids:
+            db.session.execute(db.delete(Session).filter(Session.chapter_id.in_(chapter_ids)))
+
+        # 3. Delete all chapters associated with the course
+        db.session.execute(db.delete(Chapter).filter(Chapter.course_id == course.id))
+
+        # 4. Delete the course itself
+        db.session.delete(course)
+        db.session.commit()
+        flash('Course and all associated data successfully deleted!', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting course: {str(e)}', 'danger')
+    
+    return redirect(url_for('teacher.teacher_dashboard'))
+
+
+so that it cause the trouble in like this encountered error
+
+  File "/home/lawintun/tc06_tumedx/venv/lib/python3.12/site-packages/flask/sansio/app.py", line 657, in add_url_rule
+    raise AssertionError(
+AssertionError: View function mapping is overwriting an existing endpoint function: teacher.delete_chapter
+
+
+In conclusion, 
+the existing delete chapter function is working well in another function in the teacher_dashboard ,
+Therefore we should not destroy existing but we need current works to be well 
+The solution is that applying different name as "delete_chapter_standalone" because the existing one is for serial deleting part of deleting the whole course process from teacher dashboard. Are you agree with my solution? if yes , provide related modified guide
+
+
+
+
+
+
+from 97 edit_course.html
+const updateUrl = "{{ url_for('teacher.update_course_content', course_id=course.id) }}";
+
+value="{{ course.title }}"
+{{ course.description }}
+
+hx-post ="{{ url_for('teacher.edit_cover') }}" 
+                    method="POST" 
+                    hx-target= "#content-wrapper"
+                    hx-swap = "outerHTML"
+                    class="space-y-6" 
+
+
+                    <!-- <p><strong>Message:</strong> {{ message }}</p>
+                    <p><strong>Course ID:</strong> {{ new_course_id }}</p>
+                    <p><strong>Course Title:</strong> {{ course.title }}</p>
+                    <p><strong>Course Description:</strong> {{ course.description }}</p> -->
+
+hx-post="{{ url_for('teacher.edit_cover') }}" 
+                                hx-vals='{"course_id": "{{ new_course_id }}"}'  
+                                hx-target="#content-wrapper"
+                                hx-swap="outerHTML"
+
+
+
+
+<!-- Course Chapters Section -->
+                {# <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Course Chapters</h3>
+                        <button type="button" id="add-chapter-button"
+                                class="flex items-center space-x-2 px-4 py-2 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 transition duration-300">
+                            <i class="fas fa-plus"></i>
+                            <span>Create Cover</span>
+                        </button>
+                    </div>
+                    <div id="chapters-container" class="space-y-6">
+                        <!-- Dynamic chapter forms will be added here -->
+                    </div>
+                </div> #}
+
+const createChapterCard = () => {
+        chapterCounter++;
+        const chapterDiv = document.createElement('div');
+        chapterDiv.className = 'chapter-card bg-white rounded-xl shadow-md p-6 mb-8';
+        chapterDiv.setAttribute('data-chapter-id', chapterCounter);
+
+        chapterDiv.innerHTML = `
+            <div class="flex justify-between items-center mb-4 border-b pb-4 border-gray-200">
+                <h3 class="text-xl font-bold text-indigo-700">Chapter ${chapterCounter}</h3>
+                <button type="button" class="remove-button remove-chapter-btn" title="Remove Chapter">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Chapter Title</label>
+                <input type="text" class="chapter-title-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="text-lg font-semibold text-gray-800">Chapter Sessions</h4>
+                    <button type="button" class="toggle-add-session-options-btn flex items-center space-x-2 px-4 py-2 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 transition duration-300">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Session</span>
+                    </button>
+                </div>
+                <div class="session-type-selector hidden mb-4 bg-gray-100 p-4 rounded-md shadow-inner">
+                    <button type="button" class="add-learning-session-btn bg-green-500 text-white hover:bg-green-600 mb-2">
+                        <i class="fas fa-book-reader mr-3"></i> Add Learning Session
+                    </button>
+                    <button type="button" class="add-quiz-session-btn bg-purple-500 text-white hover:bg-purple-600">
+                        <i class="fas fa-question-circle mr-3"></i> Add Quiz Session
+                    </button>
+                </div>
+                <div class="chapter-sessions-container space-y-4">
+                    <!-- Dynamic session forms (learning or quiz) will be added here -->
+                </div>
+            </div>
+        `;
+        return chapterDiv;
+    };
+
+
+
+chaptersContainer.addEventListener('click', (e) => {
+        // Remove Chapter
+        if (e.target.closest('.remove-chapter-btn')) {
+            e.target.closest('.chapter-card').remove();
+            
+        }
+
+
+
+Target : I want to add new button "Create Cover". I want t remove the "Add Chapter" button because it is suitable to create after the Cover creating .
+
+Explain :  What will be happened? and about hx-target and hx-swap ? Does i need to code new logic in the routes.py? and if user create the course , it must create course in the mysql . Under 'tumedx_db', the table is 'courses' table  , it had id, title ,description, teacher_id and create_at (that is created date and time) . I show you the related python codes from models.py. 
+
+
+
+lass Course(db.Model):
+    """Represents a course offered by a teacher."""
+    __tablename__ = 'courses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    # Ensure chapters are ordered by their 'order' attribute
+    chapters = db.relationship('Chapter', backref='course', lazy='selectin', cascade="all, delete-orphan", order_by="Chapter.order")
+
+    def __repr__(self):
+        return f'<Course {self.title}>'
+
+
+
+
+
+
+
+
+
+// tumedx_platform/app/static/js/create_course.js
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Select the main form and containers
+    const form = document.getElementById('create-course-form');
+    const chaptersContainer = document.getElementById('chapters-container');
+    const addChapterButton = document.getElementById('add-chapter-button');
+    const courseContentJsonInput = document.getElementById('course-content-json');
+
+    let chapterCounter = 0; // Tracks unique IDs for chapters
+    let sessionCounter = 0; // Tracks unique IDs for all sessions (learning or quiz)
+
+    // --- Helper functions for creating HTML elements ---
+
+    // Creates a new chapter card HTML element
+    const createChapterCard = () => {
+        chapterCounter++;
+        const chapterDiv = document.createElement('div');
+        chapterDiv.className = 'chapter-card bg-white rounded-xl shadow-md p-6 mb-8';
+        chapterDiv.setAttribute('data-chapter-id', chapterCounter);
+
+        chapterDiv.innerHTML = `
+            <div class="flex justify-between items-center mb-4 border-b pb-4 border-gray-200">
+                <h3 class="text-xl font-bold text-indigo-700">Chapter ${chapterCounter}</h3>
+                <button type="button" class="remove-button remove-chapter-btn" title="Remove Chapter">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Chapter Title</label>
+                <input type="text" class="chapter-title-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="text-lg font-semibold text-gray-800">Chapter Sessions</h4>
+                    <button type="button" class="toggle-add-session-options-btn flex items-center space-x-2 px-4 py-2 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 transition duration-300">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Session</span>
+                    </button>
+                </div>
+                <div class="session-type-selector hidden mb-4 bg-gray-100 p-4 rounded-md shadow-inner">
+                    <button type="button" class="add-learning-session-btn bg-green-500 text-white hover:bg-green-600 mb-2">
+                        <i class="fas fa-book-reader mr-3"></i> Add Learning Session
+                    </button>
+                    <button type="button" class="add-quiz-session-btn bg-purple-500 text-white hover:bg-purple-600">
+                        <i class="fas fa-question-circle mr-3"></i> Add Quiz Session
+                    </button>
+                </div>
+                <div class="chapter-sessions-container space-y-4">
+                    <!-- Dynamic session forms (learning or quiz) will be added here -->
+                </div>
+            </div>
+        `;
+        return chapterDiv;
+    };
+
+    // Creates a new individual session card (can be learning or quiz)
+    const createSessionCard = (sessionType) => {
+        sessionCounter++;
+        const sessionDiv = document.createElement('div');
+        sessionDiv.className = 'session-card bg-white rounded-lg shadow-md p-6 relative';
+        sessionDiv.setAttribute('data-session-id', sessionCounter);
+        sessionDiv.setAttribute('data-session-type', sessionType);
+
+        let sessionContentHTML = '';
+        if (sessionType === 'learning') {
+            sessionContentHTML = `
+                <h5 class="text-md font-bold text-blue-700 mb-4">Learning Session</h5>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700">Learning Session Title</label>
+                    <input type="text" class="learning-session-title-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div class="learning-materials-container space-y-4">
+                    <!-- Materials will be added here -->
+                </div>
+                <button type="button" class="add-material-btn mt-4 flex items-center space-x-2 px-3 py-1 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300 text-sm">
+                    <i class="fas fa-plus-circle"></i> Add Material
+                </button>
+            `;
+        } else if (sessionType === 'quiz') {
+            sessionContentHTML = `
+                <h5 class="text-md font-bold text-purple-700 mb-4">Quiz Session</h5>
+                ${createQuizGeneratorFormContent(sessionCounter)}
+            `;
+        }
+
+        sessionDiv.innerHTML = `
+            <button type="button" class="remove-button remove-session-btn" title="Remove Session">
+                <i class="fas fa-times-circle"></i>
+            </button>
+            ${sessionContentHTML}
+        `;
+        return sessionDiv;
+    };
+
+    // Creates a new material form HTML element
+    const createMaterialForm = () => {
+        const materialDiv = document.createElement('div');
+        materialDiv.className = 'material-form-container bg-gray-50 rounded-lg p-4 relative';
+        materialDiv.setAttribute('data-material-id', Date.now()); // Unique ID for material
+        materialDiv.innerHTML = `
+            <button type="button" class="remove-button remove-material-btn" title="Remove Material"><i class="fas fa-times-circle"></i></button>
+            <h5 class="text-md font-semibold text-gray-700 mb-2">New Material</h5>
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-gray-500">Material Name</label>
+                <input type="text" class="material-name-input mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-gray-500">Material Type</label>
+                <select class="material-type-select mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm" required>
+                    <option value="text">Text</option>
+                    <option value="image">Image URL</option>
+                    <option value="video">Video URL</option>
+                </select>
+            </div>
+            <div class="mb-3 material-content-field" data-type="text">
+                <label class="block text-xs font-medium text-gray-500">Content</label>
+                <textarea class="material-content-input mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm" rows="3"></textarea>
+            </div>
+            <div class="mb-3 material-content-field hidden" data-type="image">
+                <label class="block text-xs font-medium text-gray-500">Image URL</label>
+                <input type="url" class="material-url-input mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm" placeholder="e.g., https://example.com/image.jpg">
+            </div>
+            <div class="mb-3 material-content-field hidden" data-type="video">
+                <label class="block text-xs font-medium text-gray-500">Video URL</label>
+                <input type="url" class="material-url-input mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm" placeholder="e.g., https://youtube.com/watch?v=...">
+            </div>
+        `;
+
+        // Initialize content field requirements and event listener for type change
+        const typeSelect = materialDiv.querySelector('.material-type-select');
+        typeSelect.addEventListener('change', () => {
+            materialDiv.querySelectorAll('.material-content-field').forEach(field => {
+                field.classList.add('hidden');
+                const input = field.querySelector('textarea, input[type="url"]');
+                if (input) {
+                    input.removeAttribute('required');
+                    input.value = ''; // Clear value when field is hidden
+                }
+            });
+            const selectedType = typeSelect.value;
+            const activeField = materialDiv.querySelector(`.material-content-field[data-type="${selectedType}"]`);
+            if (activeField) {
+                activeField.classList.remove('hidden');
+                const input = activeField.querySelector('textarea, input[type="url"]');
+                if (input) {
+                    input.setAttribute('required', 'true');
+                }
+            }
+        });
+        // Set required for default 'text' field on initial creation
+        materialDiv.querySelector('.material-content-field[data-type="text"] textarea').setAttribute('required', 'true');
+
+        return materialDiv;
+    };
+
+    // Creates the content for the AI Question Generator form (reused within session card)
+    const createQuizGeneratorFormContent = (sessionId) => {
+        return `
+            <div class="question-generator-container" data-quiz-id="${sessionId}">
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-gray-500">Quiz Name</label>
+                    <input type="text" class="quiz-name-input mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-gray-500">Content Source</label>
+                    <select class="content-source-select mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm">
+                        <option value="text_input">Text Input</option>
+                        <option value="file_upload">File Upload</option>
+                    </select>
+                </div>
+                <div class="mb-3 ai-content-input-container" data-source-type="text_input">
+                    <label class="block text-xs font-medium text-gray-500">Content for AI (Provide text for question generation)</label>
+                    <textarea class="ai-content-input mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm" rows="5" required></textarea>
+                </div>
+                <div class="mb-3 ai-content-input-container hidden" data-source-type="file_upload">
+                    <label class="block text-xs font-medium text-gray-500">Upload Content File (PDF, DOCX, TXT)</label>
+                    <input type="file" class="ai-content-file-input mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm">
+                    <p class="text-xs text-gray-500 mt-1">Accepted formats: .txt, .pdf, .docx (max 5MB)</p>
+                </div>
+
+                <div class="mb-3 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500">Question Type</label>
+                        <select class="question-type-select mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm">
+                            <option value="mcq">Multiple Choice</option>
+                            <option value="true_false">True/False</option>
+                            <option value="fill_blank">Fill-in-the-Blank</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500">Bloom's Taxonomy Level</label>
+                        <select class="bloom-level-select mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm">
+                            <option value="remember">Remember</option>
+                            <option value="understand">Understand</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500">Question Difficulty Level</label>
+                        <select class="question-difficulty-select mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm">
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500">Number of Questions (1-5)</label>
+                        <select class="num-questions-input mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm" required>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3" selected>3</option> <!-- Default to 3 -->
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+    <option value="9">9</option>
+    <option value="10">10</option>
+</select>
+
+                    </div>
+                </div>
+
+                <button type="button" class="generate-questions-btn w-full mt-4 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-300">
+                    <i class="fas fa-robot mr-2"></i> Generate Questions
+                </button>
+                <div class="generated-questions-container mt-6 pt-4 border-t border-gray-200 space-y-3">
+                    <h6 class="text-md font-semibold text-gray-700">Generated Questions:</h6>
+                    <div class="loading-indicator hidden text-center text-gray-500">
+                        <i class="fas fa-spinner fa-spin mr-2"></i> Generating questions...
+                    </div>
+                    <div class="generated-questions-list space-y-3">
+                        <!-- AI-generated questions will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    // --- Event Listeners ---
+
+    // Event listener for adding a new chapter
+    addChapterButton.addEventListener('click', () => {
+        const chapterCard = createChapterCard();
+        chaptersContainer.appendChild(chapterCard);
+    });
+
+    // Event delegation for dynamically added elements (chapters, sessions, materials, quiz generators)
+    chaptersContainer.addEventListener('click', (e) => {
+        // Remove Chapter
+        if (e.target.closest('.remove-chapter-btn')) {
+            e.target.closest('.chapter-card').remove();
+        }
+
+        // Toggle Add Session Options
+        if (e.target.closest('.toggle-add-session-options-btn')) {
+            const chapterCard = e.target.closest('.chapter-card');
+            const sessionTypeSelector = chapterCard.querySelector('.session-type-selector');
+            sessionTypeSelector.classList.toggle('hidden');
+        }
+
+        // Add Learning Session
+        if (e.target.closest('.add-learning-session-btn')) {
+            const chapterCard = e.target.closest('.chapter-card');
+            const chapterSessionsContainer = chapterCard.querySelector('.chapter-sessions-container');
+            const sessionCard = createSessionCard('learning');
+            chapterSessionsContainer.appendChild(sessionCard);
+            chapterCard.querySelector('.session-type-selector').classList.add('hidden'); // Hide options after selection
+        }
+
+        // Add Quiz Session
+        if (e.target.closest('.add-quiz-session-btn')) {
+            const chapterCard = e.target.closest('.chapter-card');
+            const chapterSessionsContainer = chapterCard.querySelector('.chapter-sessions-container');
+            const sessionCard = createSessionCard('quiz');
+            chapterSessionsContainer.appendChild(sessionCard);
+            chapterCard.querySelector('.session-type-selector').classList.add('hidden'); // Hide options after selection
+            
+            // Attach content source toggle listener for the newly added quiz session
+            const contentSourceSelect = sessionCard.querySelector('.content-source-select');
+            if (contentSourceSelect) {
+                contentSourceSelect.addEventListener('change', (event) => {
+                    const selectedSourceType = event.target.value;
+                    const quizGeneratorContainer = event.target.closest('.question-generator-container');
+                    quizGeneratorContainer.querySelectorAll('.ai-content-input-container').forEach(container => {
+                        container.classList.add('hidden');
+                        const inputField = container.querySelector('textarea, input[type="file"]');
+                        if (inputField) {
+                            inputField.removeAttribute('required');
+                            inputField.value = ''; // Clear value
+                        }
+                    });
+                    const activeContainer = quizGeneratorContainer.querySelector(`.ai-content-input-container[data-source-type="${selectedSourceType}"]`);
+                    if (activeContainer) {
+                        activeContainer.classList.remove('hidden');
+                        const inputField = activeContainer.querySelector('textarea, input[type="file"]');
+                        if (inputField) {
+                            inputField.setAttribute('required', 'true');
+                        }
+                    }
+                });
+                // Initialize required state for default text input
+                sessionCard.querySelector('.ai-content-input-container[data-source-type="text_input"] .ai-content-input').setAttribute('required', 'true');
+            }
+        }
+
+        // Remove Session
+        if (e.target.closest('.remove-session-btn')) {
+            e.target.closest('.session-card').remove();
+        }
+
+        // Add Material (only within a learning session)
+        if (e.target.closest('.add-material-btn')) {
+            const learningSessionContainer = e.target.closest('.session-card[data-session-type="learning"]');
+            const learningMaterialsContainer = learningSessionContainer.querySelector('.learning-materials-container');
+            const materialDiv = createMaterialForm();
+            learningMaterialsContainer.appendChild(materialDiv);
+        }
+
+        // Remove Material
+        if (e.target.closest('.remove-material-btn')) {
+            e.target.closest('.material-form-container').remove();
+        }
+        
+        // Handle content source type change within quiz generator
+     // Handle Generate Questions button click (UI-only simulation of API)
+// Handle Generate Questions button click (OpenRouter integration)
+// Handle Generate Questions button click (OpenRouter integration with strict JSON handling)
+// Handle Generate Questions button click (OpenRouter integration + JSON extraction)
+if (e.target.closest('.generate-questions-btn')) {
+    const generateButton = e.target.closest('.generate-questions-btn');
+    const quizGeneratorCard = generateButton.closest('.question-generator-container');
+    
+    const contentSourceSelect = quizGeneratorCard.querySelector('.content-source-select');
+    const contentSourceType = contentSourceSelect.value;
+    let aiContent = '';
+    let aiFileName = '';
+
+    if (contentSourceType === 'text_input') {
+        aiContent = quizGeneratorCard.querySelector('.ai-content-input').value;
+        if (!aiContent.trim()) {
+            showErrorMessage('Please provide text content for AI to generate questions.');
+            return;
+        }
+    } else {
+        const fileInput = quizGeneratorCard.querySelector('.ai-content-file-input');
+        if (fileInput.files.length > 0) {
+            aiFileName = fileInput.files[0].name;
+        } else {
+            showErrorMessage('Please upload a file for AI to generate questions.');
+            return;
+        }
+    }
+
+    const questionType = quizGeneratorCard.querySelector('.question-type-select').value;
+    const bloomLevel = quizGeneratorCard.querySelector('.bloom-level-select').value;
+    const questionDifficulty = quizGeneratorCard.querySelector('.question-difficulty-select').value;
+    const numQuestions = quizGeneratorCard.querySelector('.num-questions-input').value;
+
+    const generatedQuestionsContainer = quizGeneratorCard.querySelector('.generated-questions-container');
+    const loadingIndicator = generatedQuestionsContainer.querySelector('.loading-indicator');
+    let questionsArea = generatedQuestionsContainer.querySelector('.generated-questions-list');
+    if (!questionsArea) {
+        questionsArea = document.createElement('div');
+        questionsArea.className = 'generated-questions-list space-y-3';
+        loadingIndicator.parentNode.insertBefore(questionsArea, loadingIndicator.nextSibling);
+    }
+    questionsArea.innerHTML = ''; 
+    loadingIndicator.classList.remove('hidden');
+
+    // --- OpenRouter API Call ---
+    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    const MODEL = "tngtech/deepseek-r1t-chimera:free";
+    const API_KEY = "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";
+
+    const prompt = `
+You are a quiz generator. Your ONLY task is to return valid JSON. 
+Do NOT include explanations, commentary, or markdown. 
+Generate ${numQuestions} ${questionType.toUpperCase()} questions 
+at Bloom level: ${bloomLevel}, Difficulty: ${questionDifficulty}.
+Source content: ${aiContent || aiFileName}.
+Return an array of objects in this exact format:
+
+[
+  { "text": "Question text?", "type": "mcq", "choices": [ 
+        { "text": "Option A", "is_correct": false },
+        { "text": "Option B", "is_correct": true }
+    ],
+    "correct_answer": "Option B" 
+  }
+]
+`;
+
+    fetch(API_URL, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${API_KEY}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: MODEL,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        loadingIndicator.classList.add('hidden');
+        
+        const rawText = data?.choices?.[0]?.message?.content?.trim() || "";
+        let sampleQuestions = null;
+
+        // --- Combined approach: extract JSON from raw response ---
+        let jsonMatch = rawText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+        if (jsonMatch) {
+            try {
+                sampleQuestions = JSON.parse(jsonMatch[0]);
+            } catch (err) {
+                console.warn("Detected JSON but failed to parse:", err);
+            }
+        }
+
+        // --- Fallback to raw display if JSON extraction fails ---
+        if (!Array.isArray(sampleQuestions)) {
+            showErrorMessage("AI response could not be parsed into JSON. Showing raw output.");
+            questionsArea.innerHTML = `<pre class="p-2 bg-gray-100 rounded">${rawText}</pre>`;
+            return;
+        }
+
+        // --- Render questions ---
+        sampleQuestions.forEach((q, qIndex) => {
+            const questionItemDiv = document.createElement('div');
+            questionItemDiv.className = 'generated-question-item p-3 border border-gray-200 rounded-md bg-white';
+            let choicesHtml = '';
+            if (q.choices && q.choices.length > 0) {
+                choicesHtml = `<ul class="list-disc pl-5 mt-1">
+                    ${q.choices.map(choice => `<li>${choice.text} ${choice.is_correct ? '<i class="fas fa-check-circle text-green-500"></i>' : ''}</li>`).join('')}
+                </ul>`;
+            }
+            questionItemDiv.innerHTML = `
+                <p class="font-medium">Q${qIndex + 1} (${q.type.replace('_', ' ').toUpperCase()}): ${q.text}</p>
+                ${choicesHtml}
+                <p class="text-sm text-green-700 mt-1"><strong>Correct Answer:</strong> ${q.correct_answer}</p>
+            `;
+            questionsArea.appendChild(questionItemDiv);
+        });
+
+        // Save for later
+        quizGeneratorCard.dataset.generatedQuestions = JSON.stringify(sampleQuestions);
+    })
+    .catch(err => {
+        loadingIndicator.classList.add('hidden');
+        showErrorMessage("Error generating questions. Check API key or network.");
+        console.error(err);
+    });
+}
+
+
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#I have qdata in app/teacher/routes.py
+path = os.getcwd()
+question = os.path.join(path,"app","teacher")
+qdata = os.path.join(question,"question.json")
+
+@teacher_bp.route('/create_course', methods=['GET', 'POST'])
+@login_required
+def create_course():
+    """
+    Handles course creation with dynamic chapters, sessions, and materials.
+    GET: Displays the course creation form.
+    POST: Processes the submitted JSON data for chapters and their content.
+    """
+    if current_user.role != 'teacher':
+        flash('You do not have permission to create courses.', 'danger')
+        return redirect(url_for('teacher.teacher_dashboard'))
+
+    if request.method == 'POST':
+        print("=================== this is my path ========= ", path) #testing
+        try:
+            course_title = request.form.get('title')
+            course_description = request.form.get('description')
+            course_content_json = request.form.get('course_content_json') # This holds the chapters/sessions/materials
+
+            # --- FLEXIBILITY POINT 1: Only course_title is strictly required initially ---
+            if not course_title:
+                flash('Course title is required.', 'danger')
+                return redirect(url_for('teacher.create_course'))
+
+            # Create the new Course object first. This allows creating a course with just title/description.
+            new_course = Course(title=course_title, description=course_description, teacher_id=current_user.id)
+            db.session.add(new_course)
+            db.session.commit() # Commit to get new_course.id before adding children
+
+            # --- FLEXIBILITY POINT 2: Only process chapters/sessions/materials if JSON content is provided ---
+            if course_content_json: # Check if the frontend actually sent any chapter data
+                course_data = json.loads(course_content_json)
+                
+                if course_data: # Check if the parsed JSON list is not empty (e.g., it's not just '[]')
+                    # 2. Iterate through chapters and create Chapter objects
+                    for chapter_order, chapter_data in enumerate(course_data):
+                        # --- VALIDATION: Ensure chapter has a title if present ---
+                        if not chapter_data.get('title'):
+                            db.session.rollback()
+                            flash('Chapter title cannot be empty.', 'danger')
+                            return redirect(url_for('teacher.create_course'))
+
+                        new_chapter = Chapter(
+                            title=chapter_data['title'],
+                            course_id=new_course.id,
+                            order=chapter_order + 1
+                        )
+                        db.session.add(new_chapter)
+                        db.session.commit() # Commit to get new_chapter.id for sessions
+
+                        # 3. Iterate through sessions within each chapter
+                        # Use .get('sessions', []) to safely handle chapters with no sessions
+                        for session_order, session_data in enumerate(chapter_data.get('sessions', [])): 
+                            # --- VALIDATION: Ensure session has a title if present ---
+                            session_title = session_data.get('title') or session_data.get('quiz_name')
+                            if not session_title:
+                                db.session.rollback()
+                                flash(f'Session title for chapter "{new_chapter.title}" cannot be empty.', 'danger')
+                                return redirect(url_for('teacher.create_course'))
+
+                            new_session = Session(
+                                title=session_title,
+                                session_type=session_data['type'],
+                                chapter_id=new_chapter.id,
+                                order=session_order + 1
+                            )
+                            db.session.add(new_session)
+                            db.session.commit() # Commit to get new_session.id for materials
+
+                            # 4. If it's a learning session, iterate through materials
+                            # Use .get('materials', []) to safely handle sessions with no materials
+                            if session_data['type'] == 'learning_session':
+                                for material_data in session_data.get('materials', []):
+                                    # --- VALIDATION: Ensure material has name and content if present ---
+                                    if not material_data.get('name') or not material_data.get('content'):
+                                        db.session.rollback()
+                                        flash(f'Material is missing a name or content in session "{new_session.title}".', 'danger')
+                                        return redirect(url_for('teacher.create_course'))
+
+                                    new_material = Material(
+                                        name=material_data['name'],
+                                        type=material_data['type'],
+                                        content=material_data['content'],
+                                        session_id=new_session.id
+                                    )
+                                    db.session.add(new_material)
+                                # (Quiz session logic for Quiz/Question/Choice models would go here if re-added)
+                
+            db.session.commit() # Final commit for any remaining additions (if any)
+            flash(f'Course "{course_title}" created successfully!', 'success')
+            return redirect(url_for('teacher.teacher_dashboard', qdata=qdata))
+
+
+
+            #I want qdata to "create_course.js" 
+
+===========================================================
+    {% extends "includes/base.html" %}
+{% import "includes/_macros.html" as macros %}
+
+{% block title %}Create New Course{% endblock %}
+
+{% block head_extras %}
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/all.min.css') }}">
+    <style>
+        /* Custom styles for dynamic content */
+        .chapter-card {
+            border: 2px solid #a78bfa; /* Distinct border for chapters */
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border-radius: 0.75rem;
+            position: relative;
+            background-color: #f3f4f6; /* Light background for chapters */
+        }
+        /* Individual session card (either learning or quiz) */
+        .session-card {
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border-radius: 0.75rem;
+            position: relative;
+            background-color: #ffffff; /* White background for individual sessions */
+        }
+        .material-form-container, .question-generator-container {
+            border: 1px dashed #cbd5e0;
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+            position: relative;
+            background-color: #f7fafc;
+        }
+        .remove-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 1.25rem;
+            color: #ef4444;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .remove-button:hover {
+            color: #dc2626;
+        }
+        .add-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .add-button:hover {
+            background-color: #45a049;
+        }
+        /* Styles for the dynamic session type buttons */
+        .session-type-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .session-type-selector button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row min-h-screen">
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-x-hidden overflow-y-auto p-6">
+        <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Create New Course</h1>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-4">
+                        {% for category, message in messages %}
+                            <div class="p-3 mb-2 rounded-md text-sm {% if category == 'danger' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% elif category == 'info' %}bg-blue-100 text-blue-700{% elif category == 'warning' %}bg-yellow-100 text-yellow-700{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form action="{{ url_for('teacher.create_course') }}" method="POST" class="space-y-6" id="create-course-form">
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700">Course Title</label>
+                    <input type="text" id="title" name="title" required
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Course Description</label>
+                    <textarea id="description" name="description" rows="5"
+                                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
+                </div>
+
+                <!-- Course Chapters Section -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Course Chapters</h3>
+                        <button type="button" id="add-chapter-button"
+                                class="flex items-center space-x-2 px-4 py-2 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 transition duration-300">
+                            <i class="fas fa-plus"></i>
+                            <span>Add Chapter</span>
+                        </button>
+                    </div>
+                    <div id="chapters-container" class="space-y-6">
+                        <!-- Dynamic chapter forms will be added here -->
+                    </div>
+                </div>
+                
+                <!-- Hidden input to store the JSON data for chapters, sessions, materials, and quizzes -->
+                <input type="hidden" name="course_content_json" id="course-content-json">
+
+                <div class="mt-8">
+                    <button type="submit"
+                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300">
+                        Create Course
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        // Pass the Python dictionary directly into a JavaScript variable
+        // Use Jinja2's `tojson` filter to safely convert Python dict to a JSON string
+        // The `safe` filter prevents auto-escaping, which is necessary here
+        var Qdata = {{ qdata | tojson | safe }};
+    </script>
+    <script src="{{ url_for('static', filename='js/create_course.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"> </script>
+{% endblock %}
+
+
+
+
+
+        except json.JSONDecodeError:
+            db.session.rollback()
+            flash('Invalid course content data (JSON format error). Please ensure your chapter/session structure is valid).', 'danger')
+            return redirect(url_for('teacher.create_course'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"An error occurred: {e}")
+            flash(f"An error occurred while creating the course: {e}", "danger")
+            return redirect(url_for('teacher.create_course'))
+
+    # GET request: render the form and pass the CSRF token
+    return render_template('create_course.html', csrf_token=generate_csrf())
+
+
+
+  // Prevent default form submission and handle it with JavaScript
+        /* createCourseForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            showMessageBox('Form submission logic will be handled here.');
+            // Here you would collect the form data and send it to your server using fetch()
+            const formData = new FormData(createCourseForm);
+            const courseData = {
+                title: formData.get('title'),
+                description: formData.get('description'),
+                chapters: formData.getAll('chapters[]')
+            }; */
+
+            // Example of sending data (uncomment and replace with your actual endpoint)
+            /*
+            fetch('/teacher/create_course', {
+                method: 'POST',
+                body: JSON.stringify(courseData),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    showMessageBox('Course created successfully!', 5000);
+                    // You might want to redirect here
+                } else {
+                    showMessageBox('Error creating course.', 5000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessageBox('An error occurred.', 5000);
+            });
+            */
+        });  
+
+
+
+
+
+
+
+
+
+
+
+Connecting:
+
+Use these settings in your web applications.
+Database host address:
+Myat.mysql.pythonanywhere-services.com
+Username:
+Myat
+
+Since you have a free account, you will only be able to connect to your database using code running inside PythonAnywhere.
+Your databases:
+
+Click a database's name to start a MySQL console logged in to it.
+Name
+Myat$default
+Myat$tumedx_db
+
+
+img/tumedx_logo.png
+login form 
+register form
+main guest_page
+teacher/templates/create_course.html 
+teacher/edit_course.html 
+teacher/routes.py 
+student/templates/student_dashboard.html
+app/__init__.py
+app/models.py
+
+Work Flow
+
+tumedx_platform/
+├── app/
+│   ├── __init__.py         # Application factory, registers blueprints, initializes extensions
+│   ├── models.py           # SQLAlchemy models for User, Course, Enrollment, etc.
+│   ├── config.py           # Configuration settings (e.g., database URI, secret key)
+│   ├── static/             # Global static files (e.g., common CSS, JS, images)
+│   │   └── css/
+│   │   └── js/
+│   │   └── img/
+│   ├── templates/          # Global templates (e.g., base.html, shared components)
+│   │   ├── base.html       # Base layout for all pages
+│   │   └── includes/       # Reusable template parts (e.g., navbar, footer)
+│   │       └── header.html
+│   │       └── footer.html
+│   │       └── sidebar.html
+│   │       └── messages.html # For Flask flash messages
+│   │
+│   ├── auth/               # Blueprint for authentication (login, register, logout)
+│   │   ├── __init__.py     # Defines the 'auth' blueprint instance
+│   │   ├── routes.py       # Contains authentication-related routes
+│   │   ├── forms.py        # (Optional) Flask-WTF forms for login/registration
+│   │   └── templates/
+│   │       ├── login.html
+│   │       └── register.html
+│   │
+│   ├── main/               # Blueprint for general public pages (Guest page)
+│   │   ├── __init__.py     # Defines the 'main' blueprint instance
+│   │   ├── routes.py       # Contains routes for the guest page and other public views
+│   │   └── templates/
+│   │       └── guest_page.html
+│   │
+│   ├── admin/              # Blueprint for admin functionalities and dashboard
+│   │   ├── __init__.py     # Defines the 'admin' blueprint instance
+│   │   ├── routes.py       # Contains admin-specific routes
+│   │   └── templates/
+│   │       └── admin_dashboard.html
+│   │
+│   ├── student/            # Blueprint for student functionalities and dashboard
+│   │   ├── __init__.py     # Defines the 'student' blueprint instance
+│   │   ├── routes.py       # Contains student-specific routes
+│   │   └── templates/
+│   │       └── student_dashboard.html
+│   │
+│   └── teacher/            # Blueprint for teacher functionalities and dashboard
+│       ├── __init__.py     # Defines the 'teacher' blueprint instance
+│       ├── routes.py       # Contains teacher-specific routes
+│       └── templates/
+│           └── teacher_dashboard.html
+│
+├── instance/               # Instance folder (for sensitive config not in version control)
+│   └── config.py           # e.g., production database URI, secret key overrides
+│
+├── venv/                   # Python virtual environment (created with `python -m venv venv`)
+├── requirements.txt        # List of Python dependencies (`pip freeze > requirements.txt`)
+├── run.py                  # Entry point to run the Flask application
+
+
+CREATE DATABASE tumedx_db;
+CREATE USER 'tumedx_user'@'localhost' IDENTIFIED BY 'your_mysql_password';
+GRANT ALL PRIVILEGES ON tumedx_db.* TO 'tumedx_user'@'localhost';
+FLUSH PRIVILEGES;
+
+
+error solving
+ALTER TABLE users MODIFY COLUMN password_hash TEXT NOT NULL;
+
+#course table creation sql
+INSERT INTO courses (title, description, teacher_id, created_at, updated_at)
+VALUES ('Introduction to Flask', 'Learn Flask basics', 1, NOW(), NOW());
+
+#course table creation python
+new_course = Course(title='Introduction to Flask', description='Learn Flask basics', teacher_id=current_user.id)
+db.session.add(new_course)
+db.session.commit()
+
+
+
+
+#teacher side course creation object
+new_course = Course(title=title, description=description, teacher_id=current_user.id)
+
+#student side courser enrollement object
+new_enrollment = Enrollment(student_id=current_user.id, course_id=sample_course.id)
+
+
+#student side enrollment course seeing
+enrolled_courses = db.session.query(Course).join(Enrollment).filter(
+    Enrollment.student_id == current_user.id
+).all()
+
+
+#Locally run
+
+step 1 make virtualenvironment 
+step 2 run mysql database (set db url as in tc06_tumedx/app/config.py)
+step 3 activate virtualenvironment 
+step 4 goto /tc06_tumedx
+step 5 pip install -r requirements.txt
+step 6 python3 run.py 
+step 7 goto http://127.0.0.1:5000
+
+
+
+'''@teacher_bp.route('/course/<int:course_id>/preview_student_flow')
+@login_required
+def preview_student_course_flow(course_id):
+    # First, fetch the course and its related chapters, sessions, and materials
+    # using selectinload for efficient database queries.
+    course = db.session.execute(
+        db.select(Course)
+        .filter_by(id=course_id)
+        .options(
+            selectinload(Course.chapters).options( # Eagerly load all chapters for the course
+                selectinload(Chapter.sessions).options( # Eagerly load all sessions for each chapter
+                    selectinload(Session.materials) # Eagerly load all materials for each session
+                )
+            )
+        )
+    ).scalar_one_or_none() # Get a single Course object or None if not found
+
+    # If the course doesn't exist, flash a message and redirect
+    if course is None:
+        flash('Course not found.', 'danger')
+        return redirect(url_for('teacher.dashboard'))
+
+    # --- Convert SQLAlchemy objects to JSON-serializable dictionaries ---
+    # This is the crucial part that solves the TypeError.
+    # We build a dictionary structure that mirrors your course hierarchy,
+    # containing only basic data types (strings, numbers, lists, dictionaries).
+
+    course_data = {
+        'id': course.id,
+        'title': course.title,
+        'description': course.description,
+        'teacher_id': course.teacher_id,
+        # datetime objects are not JSON serializable, so convert to ISO format string
+        'created_at': course.created_at.isoformat() if course.created_at else None,
+        'chapters': [] # Initialize an empty list to hold chapter dictionaries
+    }
+
+    # Sort chapters to ensure a consistent order when displayed
+    # We try to use 'order' if it exists, otherwise fall back to 'id'
+    sorted_chapters = sorted(course.chapters, key=lambda c: getattr(c, 'order', c.id))
+
+    for chapter in sorted_chapters:
+        chapter_data = {
+            'id': chapter.id,
+            'title': chapter.title,
+            'course_id': chapter.course_id,
+            'order': chapter.order,
+            'sessions': [] # Initialize an empty list for session dictionaries
+        }
+
+        # Sort sessions (e.g., by title for consistent order)
+        sorted_sessions = sorted(chapter.sessions, key=lambda s: s.title)
+
+        for session in sorted_sessions:
+            session_data = {
+                'id': session.id,
+                'title': session.title,
+                'session_type': session.session_type,
+                'chapter_id': session.chapter_id,
+                'materials': [] # Initialize an empty list for material dictionaries
+            }
+
+            # Sort materials (e.g., by name for consistent order)
+            sorted_materials = sorted(session.materials, key=lambda m: m.name)
+
+            for material in sorted_materials:
+                material_data = {
+                    'id': material.id,
+                    'name': material.name,
+                    'type': material.type,
+                    'content': material.content,
+                    'session_id': material.session_id
+                }
+                session_data['materials'].append(material_data) # Add material dict to session's materials list
+            chapter_data['sessions'].append(session_data) # Add session dict to chapter's sessions list
+        course_data['chapters'].append(chapter_data) # Add chapter dict to course's chapters list
+    # --- End of conversion ---
+
+    # Pass both the original SQLAlchemy 'course' object (for displaying simple data)
+    # and the JSON-serializable 'course_data' dictionary to the template.
+    return render_template('teacher/preview_student_course_flow.html', course=course, course_json=course_data)'''
+
+# --- Delete Course Route (Modified for Cascading Deletion) ---
+
+
+
+
+
+# In your teacher blueprint's routes file (e.g., app/teacher/routes.py)
+
+
+
+'''@teacher_bp.route('/course/<int:course_id>/preview_course')
+def preview_course(course_id):
+    """
+    Renders the SoloLearn-style overview of course chapters for teacher preview.
+    All chapters appear unlocked for the teacher.
+    """
+    course = Course.query.get_or_404(course_id)
+    chapters = Chapter.query.filter_by(course_id=course.id).order_by(Chapter.order).all()
+    
+    # Fetch all chapters for this course, ordered by their sequence
+    #chapters = Chapter.query.filter_by(course_id=course.id).order_by(Chapter.order_number).all()
+
+    return render_template(
+        'preview_student_course_flow.html',
+        course=course,
+        chapters=chapters
+    )'''
+
+'''@teacher_bp.route('/course/<int:course_id>/preview_course')
+@login_required
+def preview_course(course_id):
+    """
+    Renders the preview page for a course, including its chapters, sessions, and materials.
+    Serializes SQLAlchemy objects to JSON-compatible dictionaries.
+    """
+    course = Course.query.get_or_404(course_id)
+
+    # Ensure the current user is the teacher of this course
+    if course.teacher != current_user:
+        flash('You are not authorized to preview this course.', 'danger')
+        return redirect(url_for('main.index')) # Or another appropriate redirect
+
+    # --- Start Serialization Logic ---
+    # Create a dictionary for the course
+    serialized_course = {
+        'id': course.id,
+        'title': course.title,
+        'description': course.description,
+        'chapters': []
+    }
+
+    # Iterate through chapters and serialize them
+    # We explicitly order them here, even though the relationship has an order_by clause
+    # to be absolutely sure, and to demonstrate the structure.
+    for chapter in sorted(course.chapters, key=lambda c: c.order):
+        serialized_chapter = {
+            'id': chapter.id,
+            'title': chapter.title,
+            'order': chapter.order,
+            'sessions': []
+        }
+
+        # Iterate through sessions and serialize them
+        for session in sorted(chapter.sessions, key=lambda s: s.order):
+            serialized_session = {
+                'id': session.id,
+                'title': session.title,
+                'session_type': session.session_type,
+                'order': session.order,
+                'materials': []
+            }
+
+            # Iterate through materials and serialize them
+            for material in session.materials:
+                serialized_material = {
+                    'id': material.id,
+                    'name': material.name,
+                    'type': material.type,
+                    'content': material.content
+                }
+                serialized_session['materials'].append(serialized_material)
+            
+            serialized_chapter['sessions'].append(serialized_session)
+        
+        serialized_course['chapters'].append(serialized_chapter)
+    # --- End Serialization Logic ---
+
+    # Pass the fully serialized course data to the template
+    return render_template(
+        'preview_student_course_flow.html',
+        course=course, # You might still need the SQLAlchemy course object for other parts of the template
+        serialized_course_data=serialized_course, # Pass the JSON-friendly data
+        title='Course Preview'
+    )'''
+
+
+
+
+
+
+
+'''@teacher_bp.route('/course/<int:course_id>/detailed_teacher_view')
+@login_required
+def course_detailed_teacher_view(course_id):
+    """
+    Displays a comprehensive, detailed view of a specific course for the teacher,
+    including its chapters, sessions, and materials.
+    """
+    course = db.session.execute(
+        db.select(Course)
+        .filter_by(id=course_id)
+        .options(
+            selectinload(Course.chapters).options( # Eagerly load all chapters for the course
+                selectinload(Chapter.sessions).options( # Eagerly load all sessions for each chapter
+                    selectinload(Session.materials) # Eagerly load all materials for each session
+                )
+            )
+        )
+    ).scalar_one_or_none() # Get a single Course object or None if not found
+
+    if course is None:
+        flash('Course not found.', 'danger')
+        return redirect(url_for('teacher.teacher_dashboard'))
+
+    if course.teacher_id != current_user.id:
+        flash('You do not have permission to view this course.', 'danger')
+        return redirect(url_for('teacher.teacher_dashboard'))
+
+    return render_template('course_detailed_view.html', course=course)'''
+
+# --- View Individual Session Content (for Teacher Preview) ---
+# Renders 'course_session_view.html'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
