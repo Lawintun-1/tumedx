@@ -1,0 +1,80 @@
+{% extends 'includes/base.html' %}
+
+{% block content %}
+<div class="container mx-auto p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen rounded-lg shadow-xl my-8 max-w-5xl">
+    <!-- Header with Course Title and Back to Options -->
+    <div class="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
+        <h1 class="text-4xl font-extrabold text-gray-900 flex-grow">
+            Course Details: <span class="text-indigo-700">{{ course.title }}</span>
+        </h1>
+        <a href="{{ url_for('teacher.view_course_options', course_id=course.id) }}"
+           class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-full shadow-md hover:bg-blue-600 transition duration-300 text-sm font-semibold">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+            </svg>
+            Back to Options
+        </a>
+    </div>
+
+    <p class="text-lg text-gray-700 mb-10 text-center max-w-3xl mx-auto">{{ course.description }}</p>
+
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">Course Structure</h2>
+
+    {% if course.chapters %}
+        <div class="space-y-6">
+            {% for chapter in course.chapters|sort(attribute='order') %}
+                <details class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 group">
+                    <summary class="flex items-center justify-between p-6 cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-4 text-indigo-600 group-open:rotate-90 transition-transform duration-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </span>
+                            <h3 class="text-xl font-bold text-gray-800">Chapter {{ chapter.order }}: {{ chapter.title }}</h3>
+                        </div>
+                        <span class="text-sm text-gray-500">{{ chapter.sessions|length }} Sessions</span>
+                    </summary>
+
+                    <div class="p-6 border-t border-gray-200 bg-white">
+                        {% if chapter.sessions %}
+                            <div class="space-y-4">
+                                {% for session in chapter.sessions|sort(attribute='title') %} {# Sort sessions for consistent display #}
+                                    {% set session_icon = '📖' if session.session_type == 'learning_session' else '❓' %}
+                                    {% set session_bg = 'bg-blue-50' if session.session_type == 'learning_session' else 'bg-yellow-50' %}
+                                    {% set session_border = 'border-blue-300' if session.session_type == 'learning_session' else 'border-yellow-300' %}
+
+                                    <div class="p-4 rounded-lg {{ session_bg }} border {{ session_border }} flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <span class="text-2xl mr-3">{{ session_icon }}</span>
+                                            <div>
+                                                <h4 class="text-lg font-semibold text-gray-800">{{ session.title }}</h4>
+                                                <p class="text-sm text-gray-600">{{ session.session_type|replace('_', ' ')|title }}</p>
+                                            </div>
+                                        </div>
+                                        <a href="{{ url_for('teacher.preview_course_session', course_id=course.id, session_id=session.id) }}"
+                                           class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-4 rounded-full text-xs shadow-sm transition duration-300">
+                                            View Session
+                                        </a>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-gray-500 italic p-4">No sessions defined for this chapter yet.</p>
+                        {% endif %}
+                    </div>
+                </details>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-gray-500 italic text-center p-8">No chapters defined for this course yet.</p>
+    {% endif %}
+
+    <div class="text-center mt-12">
+        <a href="{{ url_for('teacher.teacher_dashboard') }}"
+           class="inline-block bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-full shadow-md transition duration-300 ease-in-out">
+            Back to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

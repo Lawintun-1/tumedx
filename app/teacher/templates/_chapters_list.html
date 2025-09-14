@@ -1,0 +1,9 @@
+<div id="chapters-list">
+    {% if course.chapters %}
+        {% for chapter in course.chapters %}
+            {% include "_chapters_item.html" %}
+        {% endfor %}
+    {% else %}
+        <p class="text-gray-500">No chapters yet. Add one!</p>
+    {% endif %}
+</div>

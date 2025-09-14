@@ -1,0 +1,305 @@
+{% extends 'includes/base.html' %}
+
+{% block content %}
+<div class="container mx-auto p-8 bg-gradient-to-br from-green-50 to-blue-50 min-h-screen rounded-lg shadow-xl my-8 max-w-4xl">
+    <div class="flex items-center mb-6">
+        <a href="{{ url_for('teacher.preview_course', course_id=course.id) }}"
+           class="text-blue-600 hover:text-blue-800 transition duration-300 ease-in-out">
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+           </svg>
+           <span class="sr-only">Back to Course Overview</span>
+        </a>
+        <h1 class="text-3xl font-extrabold text-gray-900 flex-grow text-center">
+            Session: <span class="text-blue-700">{{ session.title }}</span>
+        </h1>
+        <div class="w-8"></div> <!-- Spacer to center the title with the back button -->
+    </div>
+    <p class="text-lg text-gray-700 mb-6 text-center max-w-2xl mx-auto">
+        Course: <span class="font-semibold">{{ course.title }}</span> | Chapter: <span class="font-semibold">{{ session.chapter.title }}</span>
+    </p>
+
+    <!-- Progression Bar (Teacher Preview) -->
+    <div class="w-full bg-gray-200 rounded-full h-4 mb-8">
+        {% set progress_percentage = (current_section / total_sections) * 100 %}
+        <div class="bg-blue-500 h-4 rounded-full" style="width: {{ progress_percentage }}%;"></div>
+    </div>
+    <p class="text-center text-gray-600 mb-8">Progress: Section {{ current_section }} of {{ total_sections }} (Teacher Preview)</p>
+
+    <!-- Coin Display (Teacher Preview Placeholder) -->
+    {%if session.session_type == 'quiz_session' %}
+    <div id="quiz-container" class="bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-inner min-h-[400px] flex flex-col justify-between">
+        <div id="quiz-content">
+            <p class="text-gray-600 italic text-center">Loading quiz...</p>
+        </div>
+        <div id="quiz-navigation" class="mt-6 flex flex-col items-center">
+            <button id="next-question-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out hidden" style="width: fit-content;">
+                Next Question →
+            </button>
+            <p id="quiz-message" class="text-lg mt-4 font-bold text-center"></p>
+        </div>
+    </div>
+    {% endif %}
+    {% set quiz_data_json = quiz_data%}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const quizData = JSON.parse('{{ quiz_data_json | tojson | safe }}');
+            let currentQuestionIndex = 0;
+            let score = 0;
+
+            const quizContent = document.getElementById('quiz-content');
+            const nextBtn = document.getElementById('next-question-btn');
+            const quizMessage = document.getElementById('quiz-message');
+
+            function renderQuestion() {
+                if (currentQuestionIndex >= quizData.length) {
+                    showFinalScore();
+                    return;
+                }
+
+                const questionData = quizData[currentQuestionIndex];
+                let optionsHtml = '';
+
+                // Handle different question types
+                if (questionData.type === "MCQ" || questionData.type === "TRUE/FALSE") {
+                    questionData.option.forEach((option, index) => {
+                        const optionChar = String.fromCharCode(65 + index); // A, B, C, D
+                        optionsHtml += `
+                            <button data-option="${optionChar}" class="quiz-option w-full text-left bg-white p-4 rounded-lg border border-gray-300 shadow-sm hover:bg-gray-100 transition duration-200">
+                                <span class="font-bold mr-2 text-indigo-600">${optionChar}.</span> ${option}
+                            </button>
+                        `;
+                    });
+                } else if (questionData.type === "BLANK") {
+                    // For BLANK type, a text input field would be more appropriate
+                    // For this simplified example, we'll treat it like a single-option MCQ
+                    optionsHtml += `
+                        <input type="text" id="blank-answer" placeholder="Type your answer here..." class="w-full p-4 rounded-lg border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    `;
+                    // Note: Checking the answer for BLANK would require more complex logic
+                }
+
+                quizContent.innerHTML = `
+                    <div class="space-y-6">
+                        <p class="text-sm text-gray-500 font-medium">Question ${currentQuestionIndex + 1} of ${quizData.length}</p>
+                        <h3 class="text-2xl font-bold text-gray-800">${questionData.question}</h3>
+                        <div id="options-container" class="space-y-3">
+                            ${optionsHtml}
+                        </div>
+                    </div>
+                `;
+
+                // Add event listeners to the options
+                const options = document.querySelectorAll('.quiz-option');
+                options.forEach(option => {
+                    option.addEventListener('click', handleOptionClick);
+                });
+
+                // Reset navigation and message
+                nextBtn.classList.add('hidden');
+                quizMessage.textContent = '';
+            }
+
+            function handleOptionClick(event) {
+                const selectedOption = event.currentTarget;
+                const selectedKey = selectedOption.dataset.option;
+                const questionData = quizData[currentQuestionIndex];
+                const correctKey = questionData.key;
+
+                // Deactivate all options to prevent re-selection
+                const options = document.querySelectorAll('.quiz-option');
+                options.forEach(option => {
+                    option.disabled = true;
+                });
+
+                // Check if the answer is correct
+                if (selectedKey === correctKey) {
+                    score++;
+                    selectedOption.classList.add('bg-green-100', 'border-green-500');
+                    quizMessage.textContent = "✅ Correct!";
+                    quizMessage.classList.add('text-green-600');
+                    quizMessage.classList.remove('text-red-600');
+                } else {
+                    selectedOption.classList.add('bg-red-100', 'border-red-500');
+                    const correctOption = document.querySelector(`[data-option="${correctKey}"]`);
+                    if (correctOption) {
+                        correctOption.classList.add('bg-green-100', 'border-green-500');
+                    }
+                    quizMessage.textContent = "❌ Incorrect.";
+                    quizMessage.classList.add('text-red-600');
+                    quizMessage.classList.remove('text-green-600');
+                }
+
+                nextBtn.classList.remove('hidden');
+            }
+
+            nextBtn.addEventListener('click', () => {
+                currentQuestionIndex++;
+                renderQuestion();
+            });
+
+            function showFinalScore() {
+                const totalQuestions = quizData.length;
+                const percentage = (score / totalQuestions) * 100;
+                let rankText = '';
+                let starRating = '';
+                
+                if (percentage === 100) {
+                    rankText = "Perfect Score!";
+                    starRating = "⭐⭐⭐⭐⭐";
+                } else if (percentage >= 80) {
+                    rankText = "Excellent!";
+                    starRating = "⭐⭐⭐⭐";
+                } else if (percentage >= 60) {
+                    rankText = "Good Job!";
+                    starRating = "⭐⭐⭐";
+                } else if (percentage >= 40) {
+                    rankText = "You can do better!";
+                    starRating = "⭐⭐";
+                } else {
+                    rankText = "Keep Learning!";
+                    starRating = "⭐";
+                }
+
+                quizContent.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-center py-10">
+                        <h3 class="text-3xl font-bold text-blue-700 mb-4">Quiz Complete!</h3>
+                        <p class="text-xl text-gray-800 mb-2">You scored: <span class="font-extrabold text-blue-600">${score}</span> out of <span class="font-extrabold text-gray-800">${totalQuestions}</span></p>
+                        <p class="text-5xl my-4">${starRating}</p>
+                        <p class="text-2xl font-semibold text-gray-700">${rankText}</p>
+                        <a href="{{ url_for('teacher.preview_course', course_id=course.id) }}" class="mt-8 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out">
+                            Return to Course Overview
+                        </a>
+                    </div>
+                `;
+                nextBtn.classList.add('hidden');
+                quizMessage.classList.add('hidden');
+            }
+
+            renderQuestion();
+        });
+    </script>
+
+<div class="bg-white rounded-xl shadow-lg p-8 prose max-w-none">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Content for "{{ session.title }}"</h2>
+    {% if session.session_type == 'learning_session' %}
+        {% if session.materials %}
+            <div class="space-y-6">
+                {% for material in session.materials %}
+                    <div class="border border-gray-200 p-4 rounded-lg bg-gray-50 shadow-sm">
+                        <h3 class="text-xl font-semibold text-indigo-700 mb-2">{{ material.name }}</h3>
+                        <div class="text-gray-800 leading-relaxed prose max-w-none">
+                            {# --- START CONTENT TYPE HANDLING --- #}
+                            {% if material.type == 'video' %}
+                                {# Video embedding logic #}
+                                {% set youtube_watch_prefix = 'youtube.com/watch?v=' %}
+                                {% set youtu_be_prefix = 'youtu.be/' %}
+                                {% set video_id = none %}
+
+                                {% if youtube_watch_prefix in material.content %}
+                                    {% set video_id_start = material.content.find('v=') + 2 %}
+                                    {% set video_id_end = material.content.find('&', video_id_start) %}
+                                    {% if video_id_end == -1 %}
+                                        {% set video_id = material.content[video_id_start:] %}
+                                    {% else %}
+                                        {% set video_id = material.content[video_id_start:video_id_end] %}
+                                    {% endif %}
+                                {% elif youtu_be_prefix in material.content %}
+                                    {% set video_id_start = material.content.find(youtu_be_prefix) + youtu_be_prefix|length %}
+                                    {% set video_id_end = material.content.find('?', video_id_start) %}
+                                    {% if video_id_end == -1 %}
+                                        {% set video_id = material.content[video_id_start:] %}
+                                    {% else %}
+                                        {% set video_id = material.content[video_id_start:video_id_end] %}
+                                    {% endif %}
+                                {% endif %}
+
+                                {% if video_id %}
+                                    <div class="aspect-w-16 aspect-h-9 w-full overflow-hidden rounded-lg shadow-md mb-4">
+                                        <iframe
+                                            class="w-full"
+                                            height="400"
+                                            src="https://www.youtube-nocookie.com/embed/{{ video_id }}"
+                                            frameborder="0"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowfullscreen
+                                            title="{{ material.name }}"
+                                            referrerpolicy="strict-origin-when-cross-origin"
+                                        ></iframe>
+                                    </div>
+                                    <p class="text-sm text-gray-500 mt-2">Source: <a href="{{ material.content }}" target="_blank" class="text-blue-500 hover:underline">{{ material.name }}</a></p>  
+                                {% else %}
+                                    <p class="text-gray-800 leading-relaxed prose max-w-none">
+                                        <span class="font-medium">Video Link:</span> <a href="{{ material.content }}" target="_blank" class="text-blue-500 hover:underline">{{ material.name }}</a>
+                                    </p>
+                                {% endif %}
+                                
+                            {% elif material.type == 'image' %}
+                                {# --- IMAGE DISPLAY LOGIC --- #}
+                                <div class="flex flex-col items-center">
+                                    <div class="max-w-full mb-4 rounded-lg overflow-hidden shadow-md">
+                                        <img 
+                                            src="{{ material.content }}" 
+                                            alt="{{ material.name }}"
+                                            class="max-w-full h-auto object-contain max-h-96"
+                                            onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                        >
+                                        <div class="hidden bg-red-50 p-4 rounded border border-red-200 text-red-800">
+                                            <p class="font-medium">Image failed to load</p>
+                                            <p class="text-sm">URL: <a href="{{ material.content }}" target="_blank" class="text-blue-500 hover:underline break-all">{{ material.content|truncate(50) }}</a></p>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm text-gray-500 text-center">
+                                        Source: <a href="{{ material.content }}" target="_blank" class="text-blue-500 hover:underline break-all">{{ material.content|truncate(50) }}</a>
+                                    </p>
+                                </div>
+                                
+                            {% else %}
+                                {# Default content display for text and other types #}
+                                {{ material.content | safe }}
+                            {% endif %}
+                            {# --- END CONTENT TYPE HANDLING --- #}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-500 italic">No learning materials found for this session.</p>
+        {% endif %}
+    {% elif session.session_type == 'quiz_session' %}
+        <div class="bg-yellow-50 p-6 rounded-lg border border-yellow-200 shadow-inner">
+            <h3 class="text-xl font-bold text-yellow-800 mb-4">Quiz Session: {{ session.title }}</h3>
+            <p class="text-gray-700 mb-4">
+                This is a placeholder for the quiz interface. As a teacher, you're viewing how students would encounter this.
+            </p>
+        </div>
+    {% endif %}
+</div>
+    <!-- Navigation Buttons -->
+    <div class="flex justify-between mt-10">
+        {% if previous_session %}
+            <a href="{{ url_for('teacher.preview_course_session', course_id=course.id, session_id=previous_session.id) }}"
+               class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-full shadow-md transition duration-300 ease-in-out">
+                ← Previous Session
+            </a>
+        {% else %}
+            <button class="bg-gray-300 text-gray-700 font-semibold py-3 px-8 rounded-full shadow-md cursor-not-allowed opacity-75">
+                ← Previous Session
+            </button>
+        {% endif %}
+
+        {% if next_session %}
+            <a href="{{ url_for('teacher.preview_course_session', course_id=course.id, session_id=next_session.id) }}"
+               class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out">
+                Next Session →
+            </a>
+        {% else %}
+            <button class="bg-gray-300 text-gray-700 font-semibold py-3 px-8 rounded-full shadow-md cursor-not-allowed opacity-75">
+                Next Session →
+            </button>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

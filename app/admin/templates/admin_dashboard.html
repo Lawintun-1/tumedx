@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Tumedx</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+        }
+        /* Custom scrollbar styling for the main content area */
+        .main-content-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .main-content-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .main-content-scroll::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .main-content-scroll::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row min-h-screen bg-gray-100">
+
+    <!-- Mobile Sidebar Overlay (hidden by default) -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black opacity-0 transition-opacity duration-300 md:hidden z-40 pointer-events-none"></div>
+
+    <!-- Sidebar - Responsive Sidebar -->
+    <!-- On small screens, this sidebar is fixed, takes up the full height, and is initially hidden off-screen with -translate-x-full -->
+    <!-- On medium screens and larger, it is a static, non-sliding sidebar with a fixed width -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-gray-900 text-white p-6 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out md:static z-50 md:rounded-r-xl md:shadow-lg">
+        <div class="flex items-center justify-between mb-8">
+            <div class="text-xl md:text-3xl font-bold text-center">
+                <a href="#" class="text-white rounded-md p-2 hover:bg-gray-800 transition duration-300">Tumedx Admin</a>
+            </div>
+            <!-- Close button for mobile sidebar -->
+            <button id="close-sidebar" class="text-gray-400 hover:text-white md:hidden">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+        <nav class="flex-grow">
+            <ul class="space-y-4">
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-chart-pie w-6"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-users w-6"></i>
+                        <span>Manage Users</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-book w-6"></i>
+                        <span>Manage Courses</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-chalkboard-teacher w-6"></i>
+                        <span>Manage Teachers</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-graduation-cap w-6"></i>
+                        <span>Manage Students</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-cogs w-6"></i>
+                        <span>System Settings</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-file-alt w-6"></i>
+                        <span>Reports</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="mt-8">
+            <a href="{{ url_for('auth.logout') }}" class="flex items-center justify-center space-x-3 p-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition duration-300 text-lg font-medium shadow-md">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Top Bar - Responsive Top Bar -->
+        <!-- On mobile, this top bar includes a button to open the sidebar -->
+        <header class="flex justify-between items-center bg-white p-6 shadow-md rounded-bl-xl">
+            <!-- Hamburger menu button for mobile -->
+            <button id="open-sidebar" class="text-gray-800 hover:text-indigo-600 md:hidden">
+                <i class="fas fa-bars text-2xl"></i>
+            </button>
+            <h1 class="text-xl md:text-3xl font-semibold text-gray-800">Admin Dashboard</h1>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-700 text-sm md:text-lg">Welcome, <span class="font-bold">Admin User</span>!</span>
+                <img src="https://placehold.co/40x40/4a5568/ffffff?text=AU" alt="User Avatar" class="w-10 h-10 rounded-full border-2 border-gray-700">
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-6 main-content-scroll">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Card 1: Total Users -->
+                <div class="bg-white p-6 rounded-xl shadow-md transform hover:scale-105 transition duration-300">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Total Users</h2>
+                        <i class="fas fa-users text-blue-500 text-3xl"></i>
+                    </div>
+                    <p class="text-gray-600 text-4xl font-bold">1,250</p>
+                    <p class="text-gray-500">Registered users on the platform</p>
+                </div>
+
+                <!-- Card 2: Active Courses -->
+                <div class="bg-white p-6 rounded-xl shadow-md transform hover:scale-105 transition duration-300">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Active Courses</h2>
+                        <i class="fas fa-book text-green-500 text-3xl"></i>
+                    </div>
+                    <p class="text-gray-600 text-4xl font-bold">78</p>
+                    <p class="text-gray-500">Courses currently available</p>
+                </div>
+
+                <!-- Card 3: New Registrations (Last 7 Days) -->
+                <div class="bg-white p-6 rounded-xl shadow-md transform hover:scale-105 transition duration-300">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">New Registrations</h2>
+                        <i class="fas fa-user-plus text-purple-500 text-3xl"></i>
+                    </div>
+                    <p class="text-gray-600 text-4xl font-bold">45</p>
+                    <p class="text-gray-500">New users in the last week</p>
+                </div>
+            </div>
+
+            <!-- User Management Overview -->
+            <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">User Overview</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">John Doe</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">john.doe@example.com</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Student</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Jane Smith</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">jane.smith@example.com</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Teacher</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Admin User</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">admin@example.com</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Admin</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                            <!-- More users can be added here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent System Logs (Placeholder) -->
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Recent System Logs</h2>
+                <ul class="divide-y divide-gray-200">
+                    <li class="py-3 flex items-center justify-between text-sm text-gray-700">
+                        <span>[2025-07-31 10:00:00] User 'john.doe@example.com' logged in successfully.</span>
+                        <span class="text-gray-500">10 mins ago</span>
+                    </li>
+                    <li class="py-3 flex items-center justify-between text-sm text-gray-700">
+                        <span>[2025-07-31 09:45:00] New course "Advanced Flask" added by Admin.</span>
+                        <span class="text-gray-500">25 mins ago</span>
+                    </li>
+                    <li class="py-3 flex items-center justify-between text-sm text-gray-700">
+                        <span>[2025-07-31 09:30:00] Teacher 'jane.smith@example.com' updated profile.</span>
+                        <span class="text-gray-500">40 mins ago</span>
+                    </li>
+                </ul>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const openSidebarBtn = document.getElementById('open-sidebar');
+            const closeSidebarBtn = document.getElementById('close-sidebar');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+            function toggleSidebar() {
+                sidebar.classList.toggle('-translate-x-full');
+                sidebarOverlay.classList.toggle('opacity-0');
+                sidebarOverlay.classList.toggle('opacity-50');
+                sidebarOverlay.classList.toggle('pointer-events-none');
+            }
+
+            openSidebarBtn.addEventListener('click', toggleSidebar);
+            closeSidebarBtn.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+        });
+    </script>
+</body>
+</html>

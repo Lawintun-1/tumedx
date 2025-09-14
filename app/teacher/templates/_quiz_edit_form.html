@@ -1,0 +1,204 @@
+<div id="content-wrapper" 
+     x-data="{ inputMode: 'content', questionType: '{{ quiz.type or 'MCQ' }}' }">
+  <h3 class="text-2xl font-bold text-indigo-700 mb-4">
+    Edit Quiz: {{ session.title }}
+  </h3>
+  <form hx-post="{{ url_for('teacher.save_quiz') }}"
+        hx-target="#content-wrapper"
+        hx-swap="outerHTML"
+        class="space-y-6 p-4 bg-gray-50 rounded shadow-md">
+
+    <input type="hidden" name="session_id" value="{{ session.id }}">
+    <input type="hidden" name="quiz_id" value="{{ quiz.id if quiz else '' }}">
+
+    <!-- Quiz Name -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Quiz Name</label>
+      <input type="text" name="name" value="{{ quiz.name if quiz else '' }}" required
+             class="mt-1 block w-full border-gray-300 rounded-md shadow-sm px-3 py-2">
+    </div>
+
+    <!-- Input Mode: Content vs File -->
+    <div class="flex gap-4 items-center">
+      <span class="text-gray-700 font-medium">Input Mode:</span>
+      <button type="button" @click="inputMode='content'"
+              :class="{'bg-indigo-600 text-white': inputMode==='content', 'bg-gray-200': inputMode!=='content'}"
+              class="px-3 py-1 rounded shadow">Text</button>
+      <button type="button" @click="inputMode='file'"
+              :class="{'bg-indigo-600 text-white': inputMode==='file', 'bg-gray-200': inputMode!=='file'}"
+              class="px-3 py-1 rounded shadow">File Upload</button>
+    </div>
+
+    <!-- Content Field -->
+    <div x-show="inputMode==='content'">
+      <label class="block text-sm font-medium text-gray-700">Content / Prompt</label>
+      <textarea name="content" rows="5"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm px-3 py-2">{{ quiz.content if quiz else '' }}</textarea>
+    </div>
+
+    <!-- File Upload Field -->
+    <div x-show="inputMode==='file'">
+      <label class="block text-sm font-medium text-gray-700">Upload File (txt / csv)</label>
+      <input type="file" name="file" accept=".txt,.csv"
+             class="mt-1 block w-full border-gray-300 rounded-md shadow-sm px-3 py-2">
+    </div>
+
+    <!-- Question Settings -->
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Question Type</label>
+        <select name="question_type" x-model="questionType"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm px-3 py-2">
+          <option value="MCQ">MCQ</option>
+          <option value="TF">True/False</option>
+          <option value="Blank">Blank</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Bloom's Level</label>
+        <select name="bloom_level"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm px-3 py-2">
+          <option value="Remember">Remember</option>
+          <option value="Understand">Understand</option>
+          <option value="Apply">Apply</option>
+          <option value="Analyze">Analyze</option>
+          <option value="Evaluate">Evaluate</option>
+          <option value="Create">Create</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Number of Questions</label>
+        <select name="question_count"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm px-3 py-2">
+          {% for i in range(1,11) %}
+            <option value="{{ i }}">{{ i }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Difficulty</label>
+        <select name="difficulty"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm px-3 py-2">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Container for AI-generated questions -->
+    <div id="generated-questions" class="mt-6 space-y-4"></div>
+
+    <!-- Generate Questions Button -->
+    <div class="flex justify-end">
+      <button type="button" @click="generateQuestions()"
+              class="px-5 py-2 bg-green-600 text-white rounded-xl shadow hover:bg-green-700 transition">
+        🧠 Generate Questions
+      </button>
+    </div>
+
+    <!-- Save / Cancel Buttons -->
+    <div class="flex justify-end gap-3 mt-4">
+      <button type="submit"
+              class="px-5 py-2 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700 transition">
+        💾 Save Quiz
+      </button>
+      <button type="button"
+              hx-post="{{ url_for('teacher.cancel_edit_quiz') }}"
+              hx-vals='{"session_id": "{{ session.id }}"}'
+              hx-target="#content-wrapper"
+              hx-swap="outerHTML"
+              class="px-5 py-2 bg-gray-500 text-white rounded-xl shadow hover:bg-gray-600 transition">
+        ↩️ Back
+      </button>
+    </div>
+  </form>
+</div>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<script>
+// -------------------------
+// Generate questions from AI
+// -------------------------
+function generateQuestions() {
+    let form = document.querySelector('form');
+    let formData = new FormData(form);
+
+    fetch('{{ url_for("teacher.generate_quiz_questions") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("AI Response:", data);
+
+        let container = document.getElementById("generated-questions");
+        container.innerHTML = "";
+
+        if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+            container.innerHTML = '<p class="text-red-500">No valid questions parsed.</p>';
+            return;
+        }
+
+        data.questions.forEach((q, idx) => {
+            let html = '';
+            let qNum = q.id || idx + 1;
+            let qText = q.question || '';
+            let key = q.key || q.answer || '';
+            let difficulty = q.difficulty || '';
+            let bloom = q.blooms_level || q.bloom_level || '';
+
+            if (q.option && q.option.length > 0) {
+                let optionsArray = Array.isArray(q.option) ? q.option : Object.values(q.option);
+
+                html = `
+                <div class="p-4 border rounded bg-white shadow mb-2">
+                    <label class="block font-medium">Question ${qNum}:</label>
+                    <input type="text" value="${qText}" class="mt-1 block w-full border-gray-300 rounded px-2 py-1" readonly>
+
+                    <label class="block font-medium mt-2">Options:</label>
+                    ${optionsArray.map(opt => `
+                        <input type="text" value="${opt}" class="mt-1 block w-full border-gray-300 rounded px-2 py-1" readonly>
+                    `).join('')}
+
+                    <label class="block font-medium mt-2">Answer Key:</label>
+                    <input type="text" value="${key}" class="mt-1 block w-full border-gray-300 rounded px-2 py-1" readonly>
+
+                    <div class="flex gap-2 mt-2 text-sm text-gray-500">
+                        <span>Difficulty: ${difficulty}</span>
+                        <span>Bloom: ${bloom}</span>
+                        <span>Type: ${q.type || 'MCQ'}</span>
+                    </div>
+                </div>`;
+            } else {
+                html = `
+                <div class="p-4 border rounded bg-white shadow mb-2">
+                    <label class="block font-medium">Question ${qNum}:</label>
+                    <input type="text" value="${qText}" class="mt-1 block w-full border-gray-300 rounded px-2 py-1" readonly>
+
+                    <label class="block font-medium mt-2">Answer:</label>
+                    <input type="text" value="${key}" class="mt-1 block w-full border-gray-300 rounded px-2 py-1" readonly>
+
+                    <div class="flex gap-2 mt-2 text-sm text-gray-500">
+                        <span>Difficulty: ${difficulty}</span>
+                        <span>Bloom: ${bloom}</span>
+                        <span>Type: ${q.type || 'Blank'}</span>
+                    </div>
+                </div>`;
+            }
+
+            container.insertAdjacentHTML("beforeend", html);
+        });
+
+        alert("Questions generated! You can save them.");
+    })
+    .catch(err => {
+        console.error(err);
+        document.getElementById("generated-questions").innerHTML =
+            `<p class="text-red-500">Error fetching AI response: ${err}</p>`;
+    });
+}
+</script>

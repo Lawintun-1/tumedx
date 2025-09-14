@@ -1,0 +1,137 @@
+# This is a sample file showing the Flask route.
+# You will need to integrate this code into your existing Flask application.
+
+from flask import Flask, render_template, request, redirect, url_for, flash
+import json
+
+# Dummy database/model for demonstration purposes
+# In a real application, this would be a database query.
+courses_db = {
+    "course_123": {
+        "title": "Intro to Python",
+        "description": "A beginner course on Python.",
+        "content": {
+            "chapters": [
+                {
+                    "title": "Getting Started",
+                    "sessions": [
+                        {
+                            "title": "Hello World",
+                            "type": "learning_session",
+                            "materials": [
+                                {"name": "Welcome Text", "type": "text", "content": "Welcome to the course!"}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # Required for flash messages
+
+# Dummy decorator and data for the GET request
+# In your app, this would fetch the course from the database
+def get_course_data(course_id):
+    course = courses_db.get(course_id)
+    if course:
+        # Assuming your HTML template expects a 'course' object and 'course_content_json' string
+        course_content_json_str = json.dumps(course['content'])
+        return course, course_content_json_str
+    return None, None
+
+@app.route('/edit_course/<course_id>', methods=['GET', 'POST'])
+def edit_course(course_id):
+    # This part handles the initial page load (GET request)
+    if request.method == 'GET':
+        course, course_content_json = get_course_data(course_id)
+        if course:
+            # Render the HTML template, passing the data
+            return render_template('edit_course.html', course=course, course_content_json=course_content_json, csrf_token='dummy-token')
+        else:
+            return "Course not found", 404
+
+    # This part handles the form submission (POST request)
+    elif request.method == 'POST':
+        # Create a new, empty dictionary to hold the reconstructed course data
+        new_course_data = {
+            "title": request.form.get('title'),
+            "description": request.form.get('description'),
+            "chapters": []
+        }
+
+        # The 'num_chapters' hidden input tells us how many chapters to expect
+        num_chapters = int(request.form.get('num_chapters', 0))
+
+        # Loop through each chapter using the index
+        for chapter_index in range(num_chapters):
+            chapter_title = request.form.get(f'chapter_title_{chapter_index}')
+            
+            # Create a dictionary for the current chapter
+            current_chapter = {
+                "title": chapter_title,
+                "sessions": []
+            }
+
+            # Get the number of sessions for the current chapter
+            num_sessions = int(request.form.get(f'num_sessions_{chapter_index}', 0))
+            
+            # Loop through each session in the current chapter
+            for session_index in range(num_sessions):
+                session_title = request.form.get(f'session_title_{chapter_index}_{session_index}')
+                session_type = request.form.get(f'session_type_{chapter_index}_{session_index}')
+
+                # Create a dictionary for the current session
+                current_session = {
+                    "title": session_title,
+                    "type": session_type,
+                    "materials": []
+                }
+                
+                # Only learning sessions have materials
+                if session_type == 'learning_session':
+                    # Get the number of materials for the current session
+                    num_materials = int(request.form.get(f'num_materials_{chapter_index}_{session_index}', 0))
+                    
+                    # Loop through each material in the current session
+                    for material_index in range(num_materials):
+                        material_name = request.form.get(f'material_name_{chapter_index}_{session_index}_{material_index}')
+                        material_type = request.form.get(f'material_type_{chapter_index}_{session_index}_{material_index}')
+                        material_content = request.form.get(f'material_content_{chapter_index}_{session_index}_{material_index}')
+                        
+                        # Add the material to the current session
+                        current_session['materials'].append({
+                            "name": material_name,
+                            "type": material_type,
+                            "content": material_content
+                        })
+
+                # Add the completed session to the current chapter
+                current_chapter['sessions'].append(current_session)
+            
+            # Add the completed chapter to the new course data
+            new_course_data['chapters'].append(current_chapter)
+
+        # At this point, new_course_data contains all the form information in the correct structure
+        # You can now save this data to your database (e.g., Firestore)
+
+        print("Received and parsed new course data:")
+        print(json.dumps(new_course_data, indent=2))
+
+        # Example: Update the dummy database
+        courses_db[course_id]['title'] = new_course_data['title']
+        courses_db[course_id]['description'] = new_course_data['description']
+        courses_db[course_id]['content']['chapters'] = new_course_data['chapters']
+
+        # Send a success message back to the user
+        flash('Course updated successfully!', 'success')
+        
+        # Redirect the user to the same page or another page
+        return redirect(url_for('edit_course', course_id=course_id))
+
+if __name__ == '__main__':
+    # This route is for demonstration only. In your real app, you would
+    # have your main Flask app running.
+    app.run(debug=True)

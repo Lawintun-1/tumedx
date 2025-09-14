@@ -1,0 +1,65 @@
+<div id="content-wrapper">
+    <!-- Chapter Header -->
+    <div class="flex justify-between items-center mb-4 border-b pb-4 border-gray-200">
+        <h3 class="text-xl font-bold text-indigo-700">Chapter {{ chapter.order }}: {{ chapter.title }}</h3>
+    </div>
+
+    <!-- Chapter Title Form -->
+    <form hx-post="{{ url_for('teacher.save_chapter') }}"
+          hx-vals='{"chapter_id": "{{ chapter.id }}"}'
+          hx-target="#content-wrapper"
+          hx-swap="outerHTML"
+          class="mb-6">
+        <label class="block text-sm font-medium text-gray-700">Chapter Title</label>
+        <input type="text" name="title"
+               class="chapter-title-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+               value="{{ chapter.title }}" required>
+
+        <div class="mt-4 flex justify-end gap-2">
+            <button type="submit"
+                    class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                Save Title
+            </button>
+        
+    
+            <button type="button"
+                    hx-post="{{ url_for('teacher.cancel_edit_chapter') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}"}'
+                    hx-target="#content-wrapper"
+                    hx-swap="outerHTML"
+                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-coral-600 transition">
+                Back
+            </button>
+        </div>
+             <!-- Sessions Section -->
+    <div class="chapter-sessions-wrapper border-t pt-4">
+        <h4 class="text-lg font-semibold text-gray-800 mb-2">Sessions</h4>
+
+        <!-- Sessions List -->
+        {% include '_sessions_list.html' %}
+      
+        <!-- Add Session Buttons -->
+        <div class="mt-4 flex gap-2">
+            <button type="button"
+                    hx-post="{{ url_for('teacher.add_session') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}", "session_type": "learning_session"}'
+                    hx-target="#sessions-list"
+                    hx-swap="beforeend"
+                    class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                ➕ Add Learning Session
+            </button>
+
+            <button type="button"
+                    hx-post="{{ url_for('teacher.add_session') }}"
+                    hx-vals='{"chapter_id": "{{ chapter.id }}", "session_type": "quiz_session"}'
+                    hx-target="#sessions-list"
+                    hx-swap="beforeend"
+                    class="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition">
+                ➕ Add Quiz Session
+            </button>
+        </div>
+    </div>
+        
+    </form>
+
+</div>

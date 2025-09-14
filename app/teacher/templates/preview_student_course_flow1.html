@@ -1,0 +1,423 @@
+{% extends 'includes/base.html' %}
+
+{% block head %}
+    {{ super() }}
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .solo-learn-container {
+            display: flex;
+            min-height: calc(100vh - 64px); /* Adjust based on navbar height */
+        }
+        .solo-learn-sidebar {
+            width: 280px;
+            background-color: #ffffff;
+            border-right: 1px solid #e0e4e8;
+            padding: 1.5rem;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            position: sticky;
+            top: 64px; /* Adjust if your base.html navbar is sticky */
+            align-self: flex-start;
+        }
+        .solo-learn-content {
+            flex-grow: 1;
+            background-color: #fefefe;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            margin: 1.5rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        .chapter-item, .session-item {
+            cursor: pointer;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+        }
+        .chapter-item:hover, .session-item:hover {
+            background-color: #f2f4f7;
+            transform: translateX(3px);
+        }
+        .chapter-item.active, .session-item.active {
+            background-color: #e0f2fe; /* Light blue for active */
+            color: #0d6efd;
+            font-weight: 600;
+        }
+        .chapter-item .icon, .session-item .icon {
+            margin-right: 0.75rem;
+            font-size: 1.25rem;
+        }
+        .locked .icon {
+            color: #9ca3af; /* Gray for locked items */
+        }
+        .unlocked .icon {
+            color: #22c55e; /* Green for unlocked items */
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 9999px; /* Tailwind's rounded-full */
+            overflow: hidden;
+            margin-top: 1rem;
+            height: 0.5rem; /* Tailwind's h-2 */
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%; /* Initial width */
+            background-color: #3b82f6; /* Tailwind's blue-500 */
+            border-radius: 9999px;
+            transition: width 0.5s ease-in-out;
+        }
+        .material-content {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #3b82f6;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .solo-learn-container {
+                flex-direction: column;
+            }
+            .solo-learn-sidebar {
+                width: 100%;
+                position: relative;
+                top: 0;
+                border-right: none;
+                border-bottom: 1px solid #e0e4e8;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            }
+            .solo-learn-content {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="solo-learn-container">
+    <!-- Sidebar for Chapters and Sessions -->
+    <div class="solo-learn-sidebar">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <span id="sidebar-course-title" class="truncate">{{ course.title }}</span>
+            <a href="{{ url_for('teacher.view_course_options', course_id=course.id) }}" class="ml-auto text-gray-500 hover:text-gray-700 text-sm">↩️ Options</a>
+        </h2>
+        <div id="chapter-list">
+            {% for chapter in course.chapters|sort(attribute='order') %}
+                <div class="chapter-item flex items-center text-gray-700 hover:text-indigo-700 transition-colors"
+                     data-chapter-id="{{ chapter.id }}"
+                     data-chapter-title="{{ chapter.title }}">
+                    <span class="icon text-gray-500 mr-2">📚</span>
+                    Chapter {{ chapter.order }}: {{ chapter.title }}
+                </div>
+                <div class="chapter-sessions pl-6 hidden" id="sessions-for-chapter-{{ chapter.id }}">
+                    {% for session in chapter.sessions %}
+                        <div class="session-item text-gray-600 hover:text-green-700 transition-colors flex items-center ml-2"
+                             data-session-id="{{ session.id }}"
+                             data-session-type="{{ session.session_type }}"
+                             data-session-title="{{ session.title }}"
+                             data-chapter-id="{{ chapter.id }}">
+                            <span class="icon text-green-500 mr-2">
+                                {% if session.session_type == 'learning_session' %}📖{% else %}❓{% endif %}
+                            </span>
+                            {{ session.title }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="solo-learn-content">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-6 text-center" id="course-main-title">{{ course.title }}</h1>
+        <p class="text-lg text-gray-700 text-center mb-8 max-w-2xl">
+            Welcome to the preview of **{{ course.title }}**! As a teacher, all chapters and sessions are unlocked for you.
+            Click on a chapter in the sidebar to expand it, then click on a session to view its content.
+        </p>
+        
+        <div id="content-display" class="w-full">
+            <!-- Dynamic content (chapters, sessions, materials) will load here -->
+            <div class="bg-blue-50 p-6 rounded-lg shadow-inner text-blue-800 border border-blue-200">
+                <p class="font-semibold text-lg mb-2">Instructions:</p>
+                <ul class="list-disc list-inside space-y-1 text-base">
+                    <li>Click a **chapter** on the left to expand its sessions.</li>
+                    <li>Click a **session** to view its materials or quiz details.</li>
+                    <li>Observe the navigation bar dynamically update.</li>
+                    <li>Progression bar and coin counts are visual placeholders for the student experience.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Navigation buttons for within content if needed (e.g., Next/Previous Session) -->
+        <div class="mt-8 flex justify-center space-x-4">
+            <button id="prev-session-btn" class="px-6 py-3 bg-gray-300 text-gray-800 rounded-full font-semibold shadow-md hover:bg-gray-400 transition hidden">
+                ← Previous
+            </button>
+            <button id="next-session-btn" class="px-6 py-3 bg-indigo-600 text-white rounded-full font-semibold shadow-md hover:bg-indigo-700 transition hidden">
+                Next Session →
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const courseId = {{ course.id }};
+        // This line was updated: added |safe after |tojson
+        const chaptersData = {{ course.chapters|tojson|safe }}; // Pass all chapters data as JSON
+        const contentDisplay = document.getElementById('content-display');
+        const courseMainTitle = document.getElementById('course-main-title');
+        const sidebarCourseTitle = document.getElementById('sidebar-course-title');
+        const prevSessionBtn = document.getElementById('prev-session-btn');
+        const nextSessionBtn = document.getElementById('next-session-btn');
+
+        let currentChapterId = null;
+        let currentSessionId = null;
+
+        // Function to find a session by ID
+        function findSessionById(sessionId) {
+            // Ensure sessionId is treated as a number for comparison if IDs are numbers
+            const idToMatch = typeof sessionId === 'string' ? parseInt(sessionId, 10) : sessionId;
+            for (const chapter of chaptersData) {
+                for (const session of chapter.sessions) {
+                    if (session.id === idToMatch) {
+                        return session;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Function to find a chapter by ID
+        function findChapterById(chapterId) {
+            // Ensure chapterId is treated as a number for comparison
+            const idToMatch = typeof chapterId === 'string' ? parseInt(chapterId, 10) : chapterId;
+            return chaptersData.find(chapter => chapter.id === idToMatch);
+        }
+
+        // Function to update the main content area with session details
+        function displaySessionContent(session) {
+            if (!session) {
+                contentDisplay.innerHTML = '<p class="text-center text-red-500">Session not found.</p>';
+                return;
+            }
+
+            let contentHtml = `
+                <div class="material-content animated fadeIn">
+                    <h3 class="text-3xl font-bold text-gray-900 mb-4">${session.title}</h3>
+                    <p class="text-gray-600 text-sm mb-6 border-b pb-4">
+                        <span class="font-semibold">${session.session_type === 'learning_session' ? 'Learning Session' : 'Quiz Session'}</span>
+                        <span class="mx-2 text-gray-400">|</span>
+                        <span class="text-green-600 font-medium">Teacher Preview - All Unlocked</span>
+                    </p>
+            `;
+
+            if (session.session_type === 'learning_session') {
+                if (session.materials && session.materials.length > 0) {
+                    contentHtml += `<div class="space-y-6">`;
+                    session.materials.forEach(material => {
+                        contentHtml += `
+                            <div class="border border-gray-200 p-4 rounded-lg bg-white shadow-sm">
+                                <h4 class="text-xl font-semibold text-indigo-700 mb-2">${material.name}</h4>
+                                <div class="text-gray-800 leading-relaxed prose max-w-none">
+                                    <p>${material.content}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    contentHtml += `</div>`;
+                } else {
+                    contentHtml += `<p class="text-gray-500 italic">No learning materials found for this session.</p>`;
+                }
+
+                // Mock Progression Bar for learning sessions
+                contentHtml += `
+                    <div class="progress-bar-container mt-8">
+                        <div class="progress-bar w-full bg-blue-500" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <p class="text-sm text-gray-500 text-center mt-2">Progression Bar (Mock for student completion)</p>
+                `;
+
+            } else if (session.session_type === 'quiz_session') {
+                contentHtml += `
+                    <div class="bg-yellow-50 p-6 rounded-lg border border-yellow-200 shadow-inner">
+                        <h4 class="text-2xl font-bold text-yellow-800 mb-4">Quiz: ${session.title}</h4>
+                        <p class="text-gray-700 mb-4">
+                            This is a placeholder for the quiz interface. As a teacher, you're viewing how students would encounter this.
+                        </p>
+                        <p class="text-gray-600 italic">
+                            (Quiz questions and options would be dynamically loaded here for a student.)
+                        </p>
+                        <!-- Mock Coin Display for quiz sessions -->
+                        <div class="flex items-center justify-center mt-6 text-xl text-yellow-700 font-semibold">
+                            <span class="mr-2">💰</span>
+                            <span>Earned Coins: <span class="text-yellow-900">10 (Mock)</span></span>
+                        </div>
+                        <p class="text-sm text-gray-500 text-center mt-2">Coin Display (Mock for student scores)</p>
+                    </div>
+                `;
+            }
+
+            contentHtml += `</div>`;
+            contentDisplay.innerHTML = contentHtml;
+            courseMainTitle.textContent = session.title; // Update main title to session title
+            sidebarCourseTitle.textContent = session.title; // Update sidebar title to session title
+            
+            // Show navigation buttons
+            prevSessionBtn.classList.remove('hidden');
+            nextSessionBtn.classList.remove('hidden');
+            updateNavigationButtons(session);
+        }
+
+        // Function to update navigation buttons (previous/next session)
+        function updateNavigationButtons(currentSession) {
+            const allSessions = [];
+            chaptersData.forEach(chapter => {
+                // Ensure sessions are added with a chapter_id property for consistent navigation
+                chapter.sessions.forEach(session => {
+                    allSessions.push({ ...session, chapter_id: chapter.id });
+                });
+            });
+
+            const currentIndex = allSessions.findIndex(s => s.id === currentSession.id);
+            prevSessionBtn.onclick = null; // Clear previous handlers
+            nextSessionBtn.onclick = null;
+
+            if (currentIndex > 0) {
+                const prevSession = allSessions[currentIndex - 1];
+                prevSessionBtn.classList.remove('hidden');
+                prevSessionBtn.onclick = () => {
+                    currentChapterId = prevSession.chapter_id;
+                    currentSessionId = prevSession.id;
+                    displaySessionContent(prevSession);
+                    updateActiveStates();
+                };
+            } else {
+                prevSessionBtn.classList.add('hidden');
+            }
+
+            if (currentIndex < allSessions.length - 1) {
+                const nextSession = allSessions[currentIndex + 1];
+                nextSessionBtn.classList.remove('hidden');
+                nextSessionBtn.onclick = () => {
+                    currentChapterId = nextSession.chapter_id;
+                    currentSessionId = nextSession.id;
+                    displaySessionContent(nextSession);
+                    updateActiveStates();
+                };
+            } else {
+                nextSessionBtn.classList.add('hidden');
+            }
+        }
+
+
+        // Function to update active states in the sidebar
+        function updateActiveStates() {
+            document.querySelectorAll('.chapter-item, .session-item').forEach(item => {
+                item.classList.remove('active');
+                item.classList.remove('text-indigo-700'); // Remove active text color for chapters
+                item.classList.remove('text-green-700'); // Remove active text color for sessions
+                item.classList.add('text-gray-700'); // Revert to default for chapters
+                item.classList.add('text-gray-600'); // Revert to default for sessions
+            });
+
+            if (currentChapterId) {
+                const chapterItem = document.querySelector(`.chapter-item[data-chapter-id="${currentChapterId}"]`);
+                if (chapterItem) {
+                    chapterItem.classList.add('active', 'text-indigo-700', 'font-bold'); // Highlight active chapter
+                    const sessionsContainer = document.getElementById(`sessions-for-chapter-${currentChapterId}`);
+                    if (sessionsContainer) {
+                        sessionsContainer.classList.remove('hidden'); // Ensure chapter sessions are visible
+                    }
+                }
+            }
+            if (currentSessionId) {
+                const sessionItem = document.querySelector(`.session-item[data-session-id="${currentSessionId}"]`);
+                if (sessionItem) {
+                    sessionItem.classList.add('active', 'text-green-700', 'font-bold'); // Highlight active session
+                }
+            }
+        }
+
+
+        // Event listener for chapter items
+        document.querySelectorAll('.chapter-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const chapterId = parseInt(this.dataset.chapterId);
+                const sessionsContainer = document.getElementById(`sessions-for-chapter-${chapterId}`);
+                
+                // Toggle visibility of sessions
+                document.querySelectorAll('.chapter-sessions').forEach(container => {
+                    if (container.id !== `sessions-for-chapter-${chapterId}`) {
+                        container.classList.add('hidden');
+                    }
+                });
+                sessionsContainer.classList.toggle('hidden');
+
+                // Update main title to chapter title if no session is active within it
+                const currentSession = findSessionById(currentSessionId);
+                if (currentChapterId !== chapterId || !currentSession || currentSession.chapter_id !== chapterId) {
+                    courseMainTitle.textContent = this.dataset.chapterTitle;
+                    sidebarCourseTitle.textContent = this.dataset.chapterTitle;
+                }
+                currentChapterId = chapterId; // Set current chapter as active
+                currentSessionId = null; // No session active yet
+                updateActiveStates(); // Update active highlights
+                prevSessionBtn.classList.add('hidden'); // Hide nav buttons initially
+                nextSessionBtn.classList.add('hidden');
+                
+                // If chapter has sessions, auto-load the first one for teacher preview
+                const chapter = findChapterById(chapterId);
+                if (chapter && chapter.sessions && chapter.sessions.length > 0) {
+                    const firstSession = chapter.sessions[0];
+                    currentSessionId = firstSession.id;
+                    displaySessionContent(firstSession);
+                    updateActiveStates();
+                } else {
+                    contentDisplay.innerHTML = `
+                        <div class="material-content animated fadeIn">
+                            <h3 class="text-3xl font-bold text-gray-900 mb-4">Chapter: ${chapter.title}</h3>
+                            <p class="text-gray-500 italic">No sessions found for this chapter.</p>
+                        </div>
+                    `;
+                }
+            });
+        });
+
+        // Event listener for session items
+        document.querySelectorAll('.session-item').forEach(item => {
+            item.addEventListener('click', function() {
+                currentSessionId = parseInt(this.dataset.sessionId);
+                currentChapterId = parseInt(this.dataset.chapterId); // Make sure this is also parsed
+                const session = findSessionById(currentSessionId);
+                displaySessionContent(session);
+                updateActiveStates();
+            });
+        });
+
+        // Initial load: display the course title and description
+        // Set the main course title initially
+        const initialCourseTitle = "{{ course.title }}";
+        courseMainTitle.textContent = initialCourseTitle;
+        sidebarCourseTitle.textContent = initialCourseTitle;
+        prevSessionBtn.classList.add('hidden');
+        nextSessionBtn.classList.add('hidden');
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+<div id="sessions-list">
+    {% if chapter.sessions %}
+        {% for session in chapter.sessions %}
+            {% include "_sessions_item.html" %}
+        {% endfor %}
+    {% else %}
+        <p class="text-gray-500">No sessions yet. Add one!</p>
+    {% endif %}
+</div>

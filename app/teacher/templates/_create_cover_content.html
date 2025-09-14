@@ -1,0 +1,50 @@
+<div id="content-wrapper">
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-6">
+            <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+                <h1 class="text-3xl font-bold text-gray-800 mb-6">Create Cover Content</h1>
+                
+                <p><strong>Message:</strong> {{ message }}</p>
+                <p><strong>Course ID:</strong> {{ new_course_id }}</p>
+                <p><strong>Course Title:</strong> {{ course.title }}</p>
+                <p><strong>Course Description:</strong> {{ course.description }}</p>
+
+                <!-- Buttons -->
+                <div class="space-y-4 mt-6">
+                    
+                    <!-- Edit Cover Button (full width) -->
+                    <div id="cover-button-wrapper">
+                        <button hx-post="{{ url_for('teacher.edit_cover') }}" 
+                                hx-vals='{"course_id": "{{ new_course_id }}"}'  
+                                hx-target="#content-wrapper"
+                                hx-swap="outerHTML"
+                                class="w-full flex justify-center py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition">
+                            Edit Cover
+                        </button>
+                    </div>
+
+                    <!-- Chapters -->
+                    <div id="chapters-wrapper" class="mt-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Chapters</h2>
+
+                        <!-- Render all existing chapters -->
+                        {% include "_chapters_list.html" %}
+
+                        <!-- Add Chapter Button -->
+                        <div class="mt-4">
+                            <button hx-post="{{ url_for('teacher.add_chapter') }}" 
+                                    hx-vals='{"course_id": "{{ course.id }}"}'  
+                                    hx-target="#chapters-list"
+                                    hx-swap="beforeend"
+                                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200 ease-in-out">
+                                ➕ Add Chapter
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+                <!-- End Buttons -->
+            </div>
+        </main>
+    </div>
+</div>

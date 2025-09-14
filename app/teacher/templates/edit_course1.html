@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Course - Tumedx</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.min.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .session-card {
+            border-left: 5px solid;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border-radius: 0.75rem;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .session-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .learning-session {
+            border-color: #48bb78; /* Green */
+            background-color: #ecfdf5;
+        }
+        .quiz-session {
+            border-color: #63b3ed; /* Blue */
+            background-color: #ebf8ff;
+        }
+        .remove-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 1.25rem;
+            color: #ef4444;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .remove-button:hover {
+            color: #dc2626;
+        }
+        .add-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        .add-session-button {
+            background-color: #5a67d8;
+            color: white;
+        }
+        .add-session-button:hover {
+            background-color: #4c51bf;
+        }
+        .add-material-button {
+            background-color: #48bb78;
+            color: white;
+        }
+        .add-material-button:hover {
+            background-color: #38a169;
+        }
+        .add-question-button {
+            background-color: #63b3ed;
+            color: white;
+        }
+        .add-question-button:hover {
+            background-color: #4299e1;
+        }
+    </style>
+</head>
+<body class="flex min-h-screen bg-gray-100">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-blue-800 text-white p-6 flex flex-col rounded-r-xl shadow-lg">
+        <div class="text-3xl font-bold mb-8 text-center">
+            <a href="{{ url_for('teacher.teacher_dashboard') }}" class="block p-2 rounded-md hover:bg-blue-700 transition duration-300">
+                <img src="{{ url_for('static', filename='images/tumedx_logo.png') }}" alt="Tumedx Logo" class="h-10 mx-auto">
+            </a>
+        </div>
+        <nav class="flex-grow">
+            <ul class="space-y-4">
+                <li>
+                    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="flex items-center space-x-3 p-3 rounded-lg bg-blue-700 hover:bg-blue-600 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-chalkboard"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('teacher.create_course') }}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Create Course</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-folder-open"></i>
+                        <span>My Courses</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-user-graduate"></i>
+                        <span>Student Progress</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-pencil-alt"></i>
+                        <span>Grade Assignments</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-comments"></i>
+                        <span>Messages</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg font-medium">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="mt-8">
+            <a href="{{ url_for('auth.logout') }}" class="flex items-center justify-center space-x-3 p-3 bg-blue-700 rounded-lg hover:bg-blue-600 transition duration-300 text-lg font-medium shadow-md">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Top Bar -->
+        <header class="flex justify-between items-center bg-white p-6 shadow-md rounded-bl-xl">
+            <h1 class="text-3xl font-semibold text-gray-800">Edit Course: {{ course.title }}</h1>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-700 text-lg">Welcome, <span class="font-bold">{{ current_user.username }}</span>!</span>
+                <img src="https://placehold.co/40x40/3b82f6/ffffff?text=TN" alt="User Avatar" class="w-10 h-10 rounded-full border-2 border-blue-500">
+            </div>
+        </header>
+
+        <!-- Course Editing Form -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-6">
+            <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Edit Course Details</h2>
+
+                <form action="{{ url_for('teacher.edit_course', course_id=course.id) }}" method="POST" class="space-y-6" id="edit-course-form">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700">Course Title</label>
+                        <input type="text" id="title" name="title" value="{{ course.title }}" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700">Course Description</label>
+                        <textarea id="description" name="description" rows="5"
+                                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">{{ course.description }}</textarea>
+                    </div>
+
+                    <!-- Course Sessions Section -->
+                    <div class="mt-8 pt-6 border-t border-gray-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-800">Course Sessions</h3>
+                            <button type="button" id="add-session-button"
+                                    class="flex items-center space-x-2 px-4 py-2 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 transition duration-300">
+                                <i class="fas fa-plus"></i>
+                                <span>Add Session</span>
+                            </button>
+                        </div>
+                        <div id="sessions-container" class="space-y-4">
+                            <!-- Existing sessions will be rendered here -->
+                            {% for session in course.get_sessions() %}
+                            <div class="session-card {% if session.type == 'learning' %}learning-session{% else %}quiz-session{% endif %}" data-session-id="{{ loop.index }}">
+                                <button type="button" class="remove-button" title="Remove Session" data-session-id="{{ loop.index }}"><i class="fas fa-times-circle"></i></button>
+                                <div class="space-y-4">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas {% if session.type == 'learning' %}fa-book-reader{% else %}fa-question-circle{% endif %} text-xl"></i>
+                                        <label for="session-title-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Session Title</label>
+                                    </div>
+                                    <input type="text" id="session-title-{{ loop.index }}" name="session-title" value="{{ session.title }}" required
+                                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="hidden" name="session-type" value="{{ session.type }}">
+
+                                    {% if session.type == 'learning' %}
+                                    <div class="mt-4">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h4 class="text-lg font-semibold text-gray-700">Materials</h4>
+                                            <button type="button" class="add-button add-material-button" data-session-id="{{ loop.index }}">
+                                                <i class="fas fa-plus mr-2"></i> Add Material
+                                            </button>
+                                        </div>
+                                        <div class="materials-container space-y-2" data-session-id="{{ loop.index }}">
+                                            {% for material in session.materials %}
+                                            <div class="material-form-container bg-white p-4 rounded-lg shadow-sm" data-material-id="{{ loop.index }}">
+                                                <button type="button" class="remove-button" title="Remove Material" data-material-id="{{ loop.index }}"><i class="fas fa-times-circle"></i></button>
+                                                <div class="space-y-4">
+                                                    <div>
+                                                        <label for="material-title-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Material Title</label>
+                                                        <input type="text" id="material-title-{{ loop.index }}" name="material-title" value="{{ material.title }}" required
+                                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                    </div>
+                                                    <div>
+                                                        <label for="material-type-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Material Type</label>
+                                                        <select id="material-type-{{ loop.index }}" name="material-type"
+                                                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                            <option value="text" {% if material.type == 'text' %}selected{% endif %}>Text</option>
+                                                            <option value="video" {% if material.type == 'video' %}selected{% endif %}>Video</option>
+                                                            <option value="image" {% if material.type == 'image' %}selected{% endif %}>Image</option>
+                                                        </select>
+                                                    </div>
+                                                    <div id="material-content-fields-{{ loop.index }}" class="mt-4">
+                                                        {% if material.type == 'text' %}
+                                                            <label for="material-content-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Content</label>
+                                                            <textarea id="material-content-{{ loop.index }}" name="material-content" rows="4" required
+                                                                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">{{ material.content }}</textarea>
+                                                        {% elif material.type == 'video' %}
+                                                            <label for="material-content-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Video URL</label>
+                                                            <input type="url" id="material-content-{{ loop.index }}" name="material-content" value="{{ material.content }}" required
+                                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                        {% elif material.type == 'image' %}
+                                                            <label for="material-content-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Image URL</label>
+                                                            <input type="url" id="material-content-{{ loop.index }}" name="material-content" value="{{ material.content }}" required
+                                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% elif session.type == 'quiz' %}
+                                    <div class="mt-4">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h4 class="text-lg font-semibold text-gray-700">Questions</h4>
+                                            <button type="button" class="add-button add-question-button" data-session-id="{{ loop.index }}">
+                                                <i class="fas fa-plus mr-2"></i> Add Question
+                                            </button>
+                                        </div>
+                                        <div class="questions-container space-y-2" data-session-id="{{ loop.index }}">
+                                            {% for question in session.questions %}
+                                            <div class="question-form-container bg-white p-4 rounded-lg shadow-sm" data-question-id="{{ loop.index }}">
+                                                <button type="button" class="remove-button" title="Remove Question" data-question-id="{{ loop.index }}"><i class="fas fa-times-circle"></i></button>
+                                                <div class="space-y-4">
+                                                    <div>
+                                                        <label for="question-text-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Question</label>
+                                                        <input type="text" id="question-text-{{ loop.index }}" name="question-text" value="{{ question.text }}" required
+                                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                    </div>
+                                                    <div>
+                                                        <label for="correct-answer-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Correct Answer</label>
+                                                        <input type="text" id="correct-answer-{{ loop.index }}" name="correct-answer" value="{{ question.correct_answer }}" required
+                                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                    </div>
+                                                    <div>
+                                                        <label for="incorrect-answers-{{ loop.index }}" class="block text-sm font-medium text-gray-700">Incorrect Answers (comma-separated)</label>
+                                                        <input type="text" id="incorrect-answers-{{ loop.index }}" name="incorrect-answers" value="{{ ', '.join(question.incorrect_answers) }}" required
+                                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="course_content_json" id="course-content-json">
+
+                    <div class="mt-8">
+                        <button type="submit"
+                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300">
+                            Save Course
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for adding a new session -->
+    <div id="session-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Session</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500 mb-4">Choose the type of session you want to create.</p>
+                    <div class="flex flex-col space-y-4">
+                        <button id="add-learning-session-btn" type="button"
+                                class="px-4 py-2 bg-green-500 text-white rounded-md shadow-md hover:bg-green-600 transition duration-300">
+                            <i class="fas fa-book-reader mr-2"></i> Learning Session
+                        </button>
+                        <button id="add-quiz-session-btn" type="button"
+                                class="px-4 py-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 transition duration-300">
+                            <i class="fas fa-question-circle mr-2"></i> Quiz Session
+                        </button>
+                    </div>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="close-modal-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const addSessionButton = document.getElementById('add-session-button');
+            const sessionsContainer = document.getElementById('sessions-container');
+            const editCourseForm = document.getElementById('edit-course-form');
+            const courseContentJsonInput = document.getElementById('course-content-json');
+            const sessionModal = document.getElementById('session-modal');
+            const addLearningSessionBtn = document.getElementById('add-learning-session-btn');
+            const addQuizSessionBtn = document.getElementById('add-quiz-session-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+
+            let sessionCounter = sessionsContainer.children.length;
+
+            function updateAllCounters() {
+                sessionsContainer.querySelectorAll('.session-card').forEach((sessionEl, index) => {
+                    sessionEl.dataset.sessionId = index + 1;
+                    sessionEl.querySelector('[name="session-title"]').id = `session-title-${index + 1}`;
+                    sessionEl.querySelector('.remove-button').dataset.sessionId = index + 1;
+
+                    // Update material/question specific counters and attributes
+                    if (sessionEl.classList.contains('learning-session')) {
+                        const materialsContainer = sessionEl.querySelector('.materials-container');
+                        materialsContainer.dataset.sessionId = index + 1;
+                        sessionEl.querySelector('.add-material-button').dataset.sessionId = index + 1;
+                        materialsContainer.querySelectorAll('.material-form-container').forEach((materialEl, matIndex) => {
+                            materialEl.dataset.materialId = matIndex + 1;
+                            materialEl.querySelector('.remove-button').dataset.materialId = matIndex + 1;
+                            materialEl.querySelector('[name="material-title"]').id = `material-title-${index + 1}-${matIndex + 1}`;
+                            materialEl.querySelector('[name="material-type"]').id = `material-type-${index + 1}-${matIndex + 1}`;
+                            const contentFields = materialEl.querySelector('[id^="material-content-fields"]');
+                            contentFields.id = `material-content-fields-${index + 1}-${matIndex + 1}`;
+                            const contentInput = materialEl.querySelector('[name="material-content"]');
+                            if (contentInput) {
+                                contentInput.id = `material-content-${index + 1}-${matIndex + 1}`;
+                            }
+                        });
+                    } else if (sessionEl.classList.contains('quiz-session')) {
+                        const questionsContainer = sessionEl.querySelector('.questions-container');
+                        questionsContainer.dataset.sessionId = index + 1;
+                        sessionEl.querySelector('.add-question-button').dataset.sessionId = index + 1;
+                        questionsContainer.querySelectorAll('.question-form-container').forEach((questionEl, qIndex) => {
+                            questionEl.dataset.questionId = qIndex + 1;
+                            questionEl.querySelector('.remove-button').dataset.questionId = qIndex + 1;
+                            questionEl.querySelector('[name="question-text"]').id = `question-text-${index + 1}-${qIndex + 1}`;
+                            questionEl.querySelector('[name="correct-answer"]').id = `correct-answer-${index + 1}-${qIndex + 1}`;
+                            questionEl.querySelector('[name="incorrect-answers"]').id = `incorrect-answers-${index + 1}-${qIndex + 1}`;
+                        });
+                    }
+                });
+            }
+
+            function createSessionForm(type) {
+                sessionCounter++;
+                const newSessionEl = document.createElement('div');
+                newSessionEl.className = `session-card bg-white rounded-xl shadow-md ${type}-session`;
+                newSessionEl.dataset.sessionId = sessionCounter;
+
+                let sessionContentHtml = '';
+                if (type === 'learning') {
+                    sessionContentHtml = `
+                        <div class="mt-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="text-lg font-semibold text-gray-700">Materials</h4>
+                                <button type="button" class="add-button add-material-button" data-session-id="${sessionCounter}">
+                                    <i class="fas fa-plus mr-2"></i> Add Material
+                                </button>
+                            </div>
+                            <div class="materials-container space-y-2" data-session-id="${sessionCounter}">
+                            </div>
+                        </div>
+                    `;
+                } else if (type === 'quiz') {
+                    sessionContentHtml = `
+                        <div class="mt-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="text-lg font-semibold text-gray-700">Questions</h4>
+                                <button type="button" class="add-button add-question-button" data-session-id="${sessionCounter}">
+                                    <i class="fas fa-plus mr-2"></i> Add Question
+                                </button>
+                            </div>
+                            <div class="questions-container space-y-2" data-session-id="${sessionCounter}">
+                            </div>
+                        </div>
+                    `;
+                }
+
+                newSessionEl.innerHTML = `
+                    <button type="button" class="remove-button" title="Remove Session" data-session-id="${sessionCounter}"><i class="fas fa-times-circle"></i></button>
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas ${type === 'learning' ? 'fa-book-reader' : 'fa-question-circle'} text-xl"></i>
+                            <label for="session-title-${sessionCounter}" class="block text-sm font-medium text-gray-700">Session Title</label>
+                        </div>
+                        <input type="text" id="session-title-${sessionCounter}" name="session-title" placeholder="e.g., Introduction to Python" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        <input type="hidden" name="session-type" value="${type}">
+                        ${sessionContentHtml}
+                    </div>
+                `;
+                sessionsContainer.appendChild(newSessionEl);
+                updateAllCounters();
+            }
+
+            function createMaterialForm(sessionEl) {
+                const sessionId = sessionEl.dataset.sessionId;
+                const materialsContainer = sessionEl.querySelector('.materials-container');
+                const materialId = materialsContainer.children.length + 1;
+
+                const newMaterialEl = document.createElement('div');
+                newMaterialEl.className = 'material-form-container bg-white p-4 rounded-lg shadow-sm';
+                newMaterialEl.dataset.materialId = materialId;
+                newMaterialEl.innerHTML = `
+                    <button type="button" class="remove-button" title="Remove Material" data-material-id="${materialId}"><i class="fas fa-times-circle"></i></button>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="material-title-${sessionId}-${materialId}" class="block text-sm font-medium text-gray-700">Material Title</label>
+                            <input type="text" id="material-title-${sessionId}-${materialId}" name="material-title" required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label for="material-type-${sessionId}-${materialId}" class="block text-sm font-medium text-gray-700">Material Type</label>
+                            <select id="material-type-${sessionId}-${materialId}" name="material-type"
+                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                <option value="text">Text</option>
+                                <option value="video">Video</option>
+                                <option value="image">Image</option>
+                            </select>
+                        </div>
+                        <div id="material-content-fields-${sessionId}-${materialId}" class="mt-4">
+                            <label for="material-content-${sessionId}-${materialId}" class="block text-sm font-medium text-gray-700">Content</label>
+                            <textarea id="material-content-${sessionId}-${materialId}" name="material-content" rows="4" required
+                                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
+                        </div>
+                    </div>
+                `;
+                materialsContainer.appendChild(newMaterialEl);
+            }
+
+            function createQuestionForm(sessionEl) {
+                const sessionId = sessionEl.dataset.sessionId;
+                const questionsContainer = sessionEl.querySelector('.questions-container');
+                const questionId = questionsContainer.children.length + 1;
+
+                const newQuestionEl = document.createElement('div');
+                newQuestionEl.className = 'question-form-container bg-white p-4 rounded-lg shadow-sm';
+                newQuestionEl.dataset.questionId = questionId;
+                newQuestionEl.innerHTML = `
+                    <button type="button" class="remove-button" title="Remove Question" data-question-id="${questionId}"><i class="fas fa-times-circle"></i></button>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="question-text-${sessionId}-${questionId}" class="block text-sm font-medium text-gray-700">Question Text</label>
+                            <input type="text" id="question-text-${sessionId}-${questionId}" name="question-text" required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label for="correct-answer-${sessionId}-${questionId}" class="block text-sm font-medium text-gray-700">Correct Answer</label>
+                            <input type="text" id="correct-answer-${sessionId}-${questionId}" name="correct-answer" required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label for="incorrect-answers-${sessionId}-${questionId}" class="block text-sm font-medium text-gray-700">Incorrect Answers (comma-separated)</label>
+                            <input type="text" id="incorrect-answers-${sessionId}-${questionId}" name="incorrect-answers" required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                `;
+                questionsContainer.appendChild(newQuestionEl);
+            }
+
+            // Function to update content fields based on material type
+            function updateContentFields(materialElement) {
+                const materialType = materialElement.querySelector('[name="material-type"]').value;
+                const contentContainer = materialElement.querySelector('[id^="material-content-fields"]');
+                const sessionId = materialElement.closest('.session-card').dataset.sessionId;
+                const materialId = materialElement.dataset.materialId;
+
+                contentContainer.innerHTML = '';
+                let contentHtml = '';
+                if (materialType === 'text') {
+                    contentHtml = `
+                        <label for="material-content-${sessionId}-${materialId}" class="block text-sm font-medium text-gray-700">Content</label>
+                        <textarea id="material-content-${sessionId}-${materialId}" name="material-content" rows="4" required
+                                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">${materialElement.querySelector('[name="material-content"]')?.value || ''}</textarea>
+                    `;
+                } else if (materialType === 'video') {
+                    contentHtml = `
+                        <label for="material-content-${sessionId}-${materialId}" class="block text-sm font-medium text-gray-700">Video URL</label>
+                        <input type="url" id="material-content-${sessionId}-${materialId}" name="material-content" value="${materialElement.querySelector('[name="material-content"]')?.value || ''}" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    `;
+                } else if (materialType === 'image') {
+                    contentHtml = `
+                        <label for="material-content-${sessionId}-${materialId}" class="block text-sm font-medium text-gray-700">Image URL</label>
+                        <input type="url" id="material-content-${sessionId}-${materialId}" name="material-content" value="${materialElement.querySelector('[name="material-content"]')?.value || ''}" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    `;
+                }
+                contentContainer.innerHTML = contentHtml;
+            }
+
+            // Event listeners for modal
+            addSessionButton.addEventListener('click', () => sessionModal.classList.remove('hidden'));
+            closeModalBtn.addEventListener('click', () => sessionModal.classList.add('hidden'));
+            addLearningSessionBtn.addEventListener('click', () => {
+                createSessionForm('learning');
+                sessionModal.classList.add('hidden');
+            });
+            addQuizSessionBtn.addEventListener('click', () => {
+                createSessionForm('quiz');
+                sessionModal.classList.add('hidden');
+            });
+
+            // Delegated event listener for adding materials/questions and removing sessions/items
+            sessionsContainer.addEventListener('click', function(event) {
+                const target = event.target.closest('.add-button, .remove-button');
+                if (!target) return;
+
+                if (target.classList.contains('add-material-button')) {
+                    const sessionId = target.dataset.sessionId;
+                    const sessionEl = sessionsContainer.querySelector(`.session-card[data-session-id="${sessionId}"]`);
+                    createMaterialForm(sessionEl);
+                } else if (target.classList.contains('add-question-button')) {
+                    const sessionId = target.dataset.sessionId;
+                    const sessionEl = sessionsContainer.querySelector(`.session-card[data-session-id="${sessionId}"]`);
+                    createQuestionForm(sessionEl);
+                } else if (target.classList.contains('remove-button')) {
+                    const parentContainer = target.closest('.session-card, .material-form-container, .question-form-container');
+                    if (parentContainer) {
+                        parentContainer.remove();
+                        updateAllCounters();
+                    }
+                }
+            });
+
+            // Delegated event listener for changing material type
+            sessionsContainer.addEventListener('change', function(event) {
+                if (event.target.matches('[name="material-type"]')) {
+                    const materialElement = event.target.closest('.material-form-container');
+                    updateContentFields(materialElement);
+                }
+            });
+
+            // Handle form submission to prepare the nested course content JSON
+            editCourseForm.addEventListener('submit', function(event) {
+                const sessions = [];
+                sessionsContainer.querySelectorAll('.session-card').forEach(sessionEl => {
+                    const sessionTitle = sessionEl.querySelector('[name="session-title"]').value;
+                    const sessionType = sessionEl.querySelector('[name="session-type"]').value;
+
+                    let sessionData = {
+                        title: sessionTitle,
+                        type: sessionType
+                    };
+
+                    if (sessionType === 'learning') {
+                        const materials = [];
+                        sessionEl.querySelectorAll('.material-form-container').forEach(materialEl => {
+                            const materialTitle = materialEl.querySelector('[name="material-title"]').value;
+                            const materialType = materialEl.querySelector('[name="material-type"]').value;
+                            const materialContent = materialEl.querySelector('[name="material-content"]').value;
+
+                            if (materialTitle && materialContent) {
+                                materials.push({
+                                    title: materialTitle,
+                                    type: materialType,
+                                    content: materialContent
+                                });
+                            }
+                        });
+                        if (materials.length > 0) {
+                             sessionData.materials = materials;
+                             sessions.push(sessionData);
+                        }
+                    } else if (sessionType === 'quiz') {
+                        const questions = [];
+                        sessionEl.querySelectorAll('.question-form-container').forEach(questionEl => {
+                            const questionText = questionEl.querySelector('[name="question-text"]').value;
+                            const correctAnswer = questionEl.querySelector('[name="correct-answer"]').value;
+                            const incorrectAnswers = questionEl.querySelector('[name="incorrect-answers"]').value.split(',').map(s => s.trim());
+
+                            if (questionText && correctAnswer && incorrectAnswers.length > 0) {
+                                questions.push({
+                                    text: questionText,
+                                    correct_answer: correctAnswer,
+                                    incorrect_answers: incorrectAnswers
+                                });
+                            }
+                        });
+                        if (questions.length > 0) {
+                            sessionData.questions = questions;
+                            sessions.push(sessionData);
+                        }
+                    }
+                });
+
+                courseContentJsonInput.value = JSON.stringify(sessions);
+            });
+
+            // Initial content fields for existing materials and quiz questions
+            sessionsContainer.querySelectorAll('.material-form-container').forEach(updateContentFields);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<div id="session-{{ session.id }}" class="p-3 bg-gray-100 rounded mb-2 flex justify-between items-center">
+    <div>
+        <p class="font-medium">{{ session.order }}. {{ session.title }}
+           <span class="text-sm text-gray-500">
+               ({{ session.session_type.replace('_', ' ').title() }})
+           </span>
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <button hx-post="{{ url_for('teacher.edit_session') }}"
+                hx-vals='{"session_id": "{{ session.id }}"}'
+                hx-target="#content-wrapper"
+                hx-swap="outerHTML"
+                class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+            ✏️ Edit
+        </button>
+        <button hx-post="{{ url_for('teacher.delete_session_standalone') }}"
+                hx-vals='{"session_id": "{{ session.id }}"}'
+                hx-target="#sessions-list"
+                hx-swap="outerHTML"
+                class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
+            🗑 Delete
+        </button>
+    </div>
+</div>

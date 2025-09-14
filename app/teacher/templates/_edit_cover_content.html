@@ -1,0 +1,140 @@
+   {% extends "includes/base.html" %}
+{% import "includes/_macros.html" as macros %}
+
+{% block title %}Create New Course{% endblock %}
+
+{% block head_extras %}
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/all.min.css') }}">
+    <style>
+        /* Custom styles for dynamic content */
+        .chapter-card {
+            border: 2px solid #a78bfa; /* Distinct border for chapters */
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border-radius: 0.75rem;
+            position: relative;
+            background-color: #f3f4f6; /* Light background for chapters */
+        }
+        /* Individual session card (either learning or quiz) */
+        .session-card {
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border-radius: 0.75rem;
+            position: relative;
+            background-color: #ffffff; /* White background for individual sessions */
+        }
+        .material-form-container, .question-generator-container {
+            border: 1px dashed #cbd5e0;
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+            position: relative;
+            background-color: #f7fafc;
+        }
+        .remove-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 1.25rem;
+            color: #ef4444;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .remove-button:hover {
+            color: #dc2626;
+        }
+        .add-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .add-button:hover {
+            background-color: #45a049;
+        }
+        /* Styles for the dynamic session type buttons */
+        .session-type-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .session-type-selector button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div id="content-wrapper"> 
+    <div class="flex flex-col md:flex-row min-h-screen">
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-x-hidden overflow-y-auto p-6">
+        <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Edit Course</h1>
+
+            
+                <p><strong>Message:</strong> {{ message }}</p>
+                <p><strong>Course ID:</strong> {{ new_course_id }}</p>
+                <p><strong>Course Title:</strong> {{ course.title }}</p>
+                <p><strong>Course Description:</strong> {{ course.description }}</p>
+
+                <!-- Buttons -->
+                <div class="space-y-4 mt-6">
+                    
+                    <!-- Edit Cover Button (full width) -->
+                    <div id="cover-button-wrapper">
+                        <button hx-post="{{ url_for('teacher.edit_cover') }}" 
+                                hx-vals='{"course_id": "{{ new_course_id }}"}'  
+                                hx-target="#content-wrapper"
+                                hx-swap="outerHTML"
+                                class="w-full flex justify-center py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition">
+                            Edit Cover
+                        </button>
+                    </div>
+
+                    <!-- Chapters -->
+                    <div id="chapters-wrapper" class="mt-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Chapters</h2>
+
+                        <!-- Render all existing chapters -->
+                        {% include "_chapters_list.html" %}
+
+                        <!-- Add Chapter Button -->
+                        <div class="mt-4">
+                            <button hx-post="{{ url_for('teacher.add_chapter') }}" 
+                                    hx-vals='{"course_id": "{{ course.id }}"}'  
+                                    hx-target="#chapters-list"
+                                    hx-swap="beforeend"
+                                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200 ease-in-out">
+                                ➕ Add Chapter
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+                <!-- End Buttons -->
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" integrity="sha384-Akqfrbj/HpNVo8k11SXBb6TlBWmXXlYQrCSqEWmyKJe+hDm3Z/B2WVG4smwBkRVm" crossorigin="anonymous"></script>
+    {# <script src="{{ url_for('static', filename='js/create_course.js') }}"></script> #}
+    {# <script src="{{ url_for('static', filename='js/main.js') }}"> </script> #}
+{% endblock %}

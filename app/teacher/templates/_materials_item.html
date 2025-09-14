@@ -1,0 +1,25 @@
+<div id="material-{{ material.id }}" 
+     class="p-3 bg-gray-50 rounded mb-2 flex justify-between items-center">
+    <div>
+        <p class="font-medium">{{ material.name }}</p>
+        <span class="text-sm text-gray-500">
+            ({{ material.type.title() }})
+        </span>
+    </div>
+    <div class="flex gap-2">
+        <button hx-post="{{ url_for('teacher.edit_material') }}"
+                hx-vals='{"material_id": "{{ material.id }}"}'
+                hx-target="#content-wrapper"
+                hx-swap="outerHTML"
+                class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+            ✏️ Edit
+        </button>
+        <button hx-post="{{ url_for('teacher.delete_material_standalone') }}"
+                hx-vals='{"material_id": "{{ material.id }}"}'
+                hx-target="#materials-list"
+                hx-swap="outerHTML"
+                class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
+            🗑 Delete
+        </button>
+    </div>
+</div>

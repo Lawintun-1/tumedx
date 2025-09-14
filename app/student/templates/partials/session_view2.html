@@ -1,0 +1,118 @@
+ <div class="max-w-3xl mx-auto p-4">
+  <button 
+      hx-get="{{ url_for('student.learning_room', course_id=session.chapter.course_id) }}"
+      hx-target="#content-wrapper"
+      hx-swap="innerHTML"
+      class="inline-flex items-center px-4 py-2 mb-4 text-sm font-medium text-indigo-600 
+             bg-indigo-50 rounded-lg border border-indigo-200 shadow-sm 
+             hover:bg-indigo-100 hover:text-indigo-800 transition duration-200"
+  >
+      <!-- Left arrow icon -->
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+      </svg>
+      Back to Chapter List
+  </button>
+
+
+  <h2 class="text-xl font-bold mb-4">{{ session.title }}</h2>
+
+  {% if session.session_type == "learning_session" %}
+  <div class="space-y-4">
+    {% for m in materials %}
+      <div class="p-4 border rounded-lg bg-white shadow-sm">
+        <h3 class="font-semibold">{{ m.name }}</h3>
+
+        {% if m.type == "text" %}
+          <p class="text-gray-700 mt-2">{{ m.content }}</p>
+
+        {% elif m.type == "video" %}
+          {% if "youtube.com/watch?v=" in m.content %}
+            {% set video_id = m.content.split('v=')[-1].split('&')[0] %}
+            <iframe 
+              src="https://www.youtube.com/embed/{{ video_id }}" 
+              class="w-full aspect-video mt-2 rounded" 
+              allowfullscreen
+            ></iframe>
+          {% elif "youtu.be/" in m.content %}
+            {% set video_id = m.content.split('/')[-1] %}
+            <iframe 
+              src="https://www.youtube.com/embed/{{ video_id }}" 
+              class="w-full aspect-video mt-2 rounded" 
+              allowfullscreen
+            ></iframe>
+          {% else %}
+            <iframe 
+              src="{{ m.content }}" 
+              class="w-full aspect-video mt-2 rounded" 
+              allowfullscreen
+            ></iframe>
+          {% endif %}
+
+        {% elif m.type == "image" %}
+          <img src="{{ m.content }}" alt="{{ m.name }}" class="mt-2 rounded-lg max-h-64 mx-auto">
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+  {% if session.session_type == "quiz_session" %}
+  <div class="space-y-6">
+    {% for quiz in quizzes %}
+      <div class="p-4 border rounded-lg bg-white shadow-sm">
+        <h3 class="font-semibold text-lg">{{ quiz.name }}</h3>
+
+        {% for qid, question in quiz.question.items() %}
+          <div class="mt-4">
+            <p class="font-medium">{{ qid }}. {{ question }}</p>
+
+            {% if quiz.type in ["MCQ", "TF"] %}
+              {% set opts = quiz.option[qid] %}
+              <div class="mt-2 space-y-2">
+                {% for opt in opts %}
+                  <label class="flex items-center space-x-2">
+                    <input type="radio" name="q{{ quiz.id }}_{{ qid }}" value="{{ opt }}" class="text-indigo-600 focus:ring-indigo-500">
+                    <span>{{ opt }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            {% elif quiz.type == "Blank" %}
+              <div class="mt-2">
+                <input 
+                  type="text" 
+                  name="q{{ quiz.id }}_{{ qid }}" 
+                  placeholder="Type your answer..." 
+                  class="w-full border rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <div class="mt-4">
+          <button 
+            class="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+          >
+            Check
+          </button>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% if next_session %}
+  <div class="mt-6 text-right">
+    <button 
+        hx-get="{{ url_for('student.session_view', session_id=next_session.id) }}"
+        hx-target="#content-wrapper"
+        hx-swap="innerHTML"
+        class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+    >
+        Continue →
+    </button>
+  </div>
+{% endif %}
+
+</div>

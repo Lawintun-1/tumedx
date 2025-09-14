@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Flash Messages Container -->
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-xl z-50">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="rounded-lg p-3 text-white text-center mb-2 {% if category == 'success' %}bg-green-500{% elif category == 'danger' %}bg-red-500{% else %}bg-blue-500{% endif %} shadow-md">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">{{ title }}</h1>
+
+        <form method="POST" action="">
+            <!-- Corrected csrf_token usage: removed parentheses -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <div class="mb-4">
+                <label for="title" class="block text-gray-700 font-medium mb-2">Chapter Title</label>
+                <input type="text" id="title" name="title" value="{{ form.title.data if form.title.data else '' }}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+            </div>
+
+            <div class="mb-6">
+                <label for="order" class="block text-gray-700 font-medium mb-2">Chapter Order (e.g., 1, 2, 3)</label>
+                <input type="number" id="order" name="order" value="{{ form.order.data if form.order.data else '' }}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+            </div>
+
+            <div class="flex justify-between items-center">
+                <button type="submit" class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 shadow-md">
+                    Save Changes
+                </button>
+                {% if course and course.id %}
+                    <a href="{{ url_for('teacher.edit_course', course_id=course.id) }}" class="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-200">
+                        Cancel
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</body>
+</html>

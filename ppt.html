@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tumedx Presentation</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #333333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .presentation-wrapper {
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            width: 95%;
+            max-width: 1280px;
+            height: 90vh;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .slide-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+            text-align: center;
+            padding: 2rem;
+            animation: fadeIn 0.5s ease-in-out;
+            box-sizing: border-box;
+        }
+        .slide-container.active {
+            display: flex;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .svg-container {
+            width: 100%;
+            max-width: 900px;
+            height: auto;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        .nav-btn {
+            background-color: #f3f4f6;
+            color: #4b5563;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-btn:hover {
+            background-color: #e5e7eb;
+            transform: scale(1.05);
+        }
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #f3f4f6;
+            transform: scale(1);
+        }
+        .text-flowchart { font-family: 'Inter', sans-serif; font-size: 16px; fill: #1f2937; font-weight: 500; }
+        .text-erd { font-family: 'Inter', sans-serif; font-size: 14px; fill: #4a5568; }
+        .label-erd { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; fill: #1f2937; }
+        .entity-box { stroke: #3182ce; stroke-width: 2; fill: #ebf8ff; transition: all 0.3s ease; }
+        .entity-box:hover { stroke: #2c5282; fill: #e2e8f0; }
+        .relation-line { stroke: #ef4444; stroke-width: 2; marker-end: url(#arrowhead); }
+    </style>
+</head>
+<body>
+
+    <div class="presentation-wrapper">
+
+        <!-- Slide Content Area -->
+        <div class="flex-grow flex items-center justify-center p-8 overflow-auto">
+
+            <!-- Slide 1: Title Slide -->
+            <div id="slide-1" class="slide-container active">
+                <h1 class="text-6xl font-extrabold text-blue-700 mb-4 animate-pulse">Tumedx</h1>
+                <p class="text-3xl font-light text-gray-700 mb-8">The Modern E-Learning Platform</p>
+                <p class="text-xl text-gray-500">Presented By: </p>
+            </div>
+
+            <!-- Slide 2: System Flow Chart -->
+            <div id="slide-2" class="slide-container">
+                <h2 class="text-4xl font-bold text-gray-800 mb-6">System Flow Chart</h2>
+                <p class="text-lg text-gray-600 mb-6">A high-level overview of the user's journey through the platform.</p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5563" />
+                            </marker>
+                        </defs>
+                        <rect x="300" y="20" rx="15" ry="15" width="200" height="50" class="entity-box" />
+                        <text x="400" y="50" text-anchor="middle" class="text-flowchart">User Registration</text>
+                        <line x1="400" y1="70" x2="400" y2="120" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="300" y="120" rx="15" ry="15" width="200" height="50" class="entity-box" />
+                        <text x="400" y="150" text-anchor="middle" class="text-flowchart">User Login</text>
+                        <line x1="400" y1="170" x2="400" y2="220" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="300" y="220" rx="5" ry="5" width="200" height="50" class="entity-box" />
+                        <text x="400" y="250" text-anchor="middle" class="text-flowchart">Access Dashboard</text>
+                        <line x1="400" y1="270" x2="400" y2="320" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="300" y="320" rx="5" ry="5" width="200" height="50" class="entity-box" />
+                        <text x="400" y="350" text-anchor="middle" class="text-flowchart">Create / View Course</text>
+                        <line x1="400" y1="370" x2="400" y2="420" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="300" y="420" rx="15" ry="15" width="200" height="50" class="entity-box" />
+                        <text x="400" y="450" text-anchor="middle" class="text-flowchart">Logout</text>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Slide 3: Login/Register/Logout Flowchart -->
+            <div id="slide-3" class="slide-container">
+                <h2 class="text-4xl font-bold text-gray-800 mb-6">Login, Register, & Logout Flowchart</h2>
+                <p class="text-lg text-gray-600 mb-6">Detailed flow for user authentication and session management.</p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 900 650" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5563" />
+                            </marker>
+                        </defs>
+                        <rect x="350" y="20" rx="15" ry="15" width="200" height="50" class="entity-box" />
+                        <text x="450" y="50" text-anchor="middle" class="text-flowchart">User Starts</text>
+                        <line x1="450" y1="70" x2="450" y2="120" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <polygon points="450,120 550,170 450,220 350,170" fill="#fefcbf" stroke="#f59e0b" stroke-width="2" />
+                        <text x="450" y="175" text-anchor="middle" class="text-flowchart">Is User Logged In?</text>
+                        <line x1="550" y1="170" x2="650" y2="170" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <text x="600" y="160" text-anchor="middle" class="text-flowchart">Yes</text>
+                        <rect x="650" y="145" rx="5" ry="5" width="200" height="50" class="entity-box" />
+                        <text x="750" y="175" text-anchor="middle" class="text-flowchart">Access Dashboard</text>
+                        <line x1="750" y1="195" x2="750" y2="270" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="650" y="270" rx="15" ry="15" width="200" height="50" fill="#fecaca" stroke="#ef4444" stroke-width="2" />
+                        <text x="750" y="300" text-anchor="middle" class="text-flowchart">Click 'Logout'</text>
+                        <line x1="750" y1="320" x2="750" y2="400" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="650" y="400" rx="15" ry="15" width="200" height="50" class="entity-box" />
+                        <text x="750" y="430" text-anchor="middle" class="text-flowchart">Session Ended</text>
+
+                        <line x1="450" y1="220" x2="450" y2="270" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <text x="430" y="245" text-anchor="middle" class="text-flowchart">No</text>
+                        <rect x="350" y="270" rx="5" ry="5" width="200" height="50" class="entity-box" />
+                        <text x="450" y="300" text-anchor="middle" class="text-flowchart">Show Public Pages</text>
+                        <line x1="450" y1="320" x2="450" y2="370" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <polygon points="450,370 550,420 450,470 350,420" fill="#fefcbf" stroke="#f59e0b" stroke-width="2" />
+                        <text x="450" y="425" text-anchor="middle" class="text-flowchart">Has an Account?</text>
+
+                        <line x1="550" y1="420" x2="650" y2="420" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <text x="600" y="410" text-anchor="middle" class="text-flowchart">Yes</text>
+                        <rect x="650" y="395" rx="5" ry="5" width="200" height="50" fill="#dbeafe" stroke="#3b82f6" stroke-width="2" />
+                        <text x="750" y="425" text-anchor="middle" class="text-flowchart">Click 'Login'</text>
+                        <line x1="750" y1="445" x2="750" y2="520" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="650" y="520" rx="5" ry="5" width="200" height="50" class="entity-box" />
+                        <text x="750" y="550" text-anchor="middle" class="text-flowchart">Verify Credentials</text>
+                        <line x1="750" y1="570" x2="750" y2="620" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="650" y="620" rx="15" ry="15" width="200" height="50" class="entity-box" />
+                        <text x="750" y="650" text-anchor="middle" class="text-flowchart">Login Successful</text>
+
+                        <line x1="450" y1="470" x2="450" y2="520" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <text x="430" y="495" text-anchor="middle" class="text-flowchart">No</text>
+                        <rect x="350" y="520" rx="5" ry="5" width="200" height="50" fill="#dbeafe" stroke="#3b82f6" stroke-width="2" />
+                        <text x="450" y="550" text-anchor="middle" class="text-flowchart">Click 'Register'</text>
+                        <line x1="450" y1="570" x2="450" y2="620" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <rect x="350" y="620" rx="15" ry="15" width="200" height="50" class="entity-box" />
+                        <text x="450" y="650" text-anchor="middle" class="text-flowchart">Create Account</text>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Slide 4: Entity-Relationship Diagram -->
+            <div id="slide-4" class="slide-container">
+                <h2 class="text-4xl font-bold text-gray-800 mb-6">Entity-Relationship Diagram</h2>
+                <p class="text-lg text-gray-600 mb-6">Clear visualization of database relationships.</p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 900 650" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5563" />
+                            </marker>
+                        </defs>
+                        <!-- Entities -->
+                        <rect x="50" y="200" width="150" height="120" class="entity-box" />
+                        <text x="125" y="225" text-anchor="middle" class="label-erd">Users</text>
+                        <text x="125" y="245" text-anchor="middle" class="text-erd"><tspan font-weight="bold">id</tspan> (PK)</text>
+                        <text x="125" y="265" text-anchor="middle" class="text-erd">username, email</text>
+                        <text x="125" y="285" text-anchor="middle" class="text-erd">password_hash</text>
+                        <text x="125" y="305" text-anchor="middle" class="text-erd">role (Teacher/Student)</text>
+
+                        <rect x="350" y="100" width="150" height="100" class="entity-box" />
+                        <text x="425" y="125" text-anchor="middle" class="label-erd">Courses</text>
+                        <text x="425" y="145" text-anchor="middle" class="text-erd"><tspan font-weight="bold">id</tspan> (PK)</text>
+                        <text x="425" y="165" text-anchor="middle" class="text-erd">title, description</text>
+                        <text x="425" y="185" text-anchor="middle" class="text-erd">teacher_id (FK)</text>
+
+                        <rect x="650" y="200" width="150" height="120" class="entity-box" />
+                        <text x="725" y="225" text-anchor="middle" class="label-erd">Materials</text>
+                        <text x="725" y="245" text-anchor="middle" class="text-erd"><tspan font-weight="bold">id</tspan> (PK)</text>
+                        <text x="725" y="265" text-anchor="middle" class="text-erd">title, content</text>
+                        <text x="725" y="285" text-anchor="middle" class="text-erd">type (video, text)</text>
+                        <text x="725" y="305" text-anchor="middle" class="text-erd">course_id (FK)</text>
+
+                        <rect x="350" y="450" width="150" height="100" class="entity-box" />
+                        <text x="425" y="475" text-anchor="middle" class="label-erd">Enrollments</text>
+                        <text x="425" y="495" text-anchor="middle" class="text-erd"><tspan font-weight="bold">id</tspan> (PK)</text>
+                        <text x="425" y="515" text-anchor="middle" class="text-erd">user_id (FK)</text>
+                        <text x="425" y="535" text-anchor="middle" class="text-erd">course_id (FK)</text>
+
+                        <!-- Relationships -->
+                        <line x1="150" y1="200" x2="400" y2="100" class="relation-line" />
+                        <text x="275" y="150" text-anchor="middle" class="label-erd">teaches (1:N)</text>
+
+                        <line x1="500" y1="150" x2="650" y2="250" class="relation-line" />
+                        <text x="575" y="200" text-anchor="middle" class="label-erd">contains (1:N)</text>
+
+                        <line x1="150" y1="320" x2="400" y2="450" class="relation-line" />
+                        <text x="275" y="385" text-anchor="middle" class="label-erd">enrolls (N:M)</text>
+
+                        <line x1="425" y1="450" x2="425" y2="200" class="relation-line" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Slide 5: The End -->
+            <div id="slide-5" class="slide-container">
+                <h2 class="text-5xl font-extrabold text-blue-700 mb-4">Thank You!</h2>
+                <p class="text-2xl font-light text-gray-700">Any Questions?</p>
+            </div>
+
+        </div>
+
+        <!-- Navigation Controls -->
+        <div class="p-6 bg-gray-100 flex items-center justify-between border-t border-gray-300">
+            <button id="prevBtn" class="px-6 py-2 rounded-lg nav-btn text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                &larr; Previous
+            </button>
+            <div class="slide-indicator text-lg text-gray-600 font-medium">
+                Slide <span id="current-slide">1</span> of <span id="total-slides">5</span>
+            </div>
+            <button id="nextBtn" class="px-6 py-2 rounded-lg nav-btn text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Next &rarr;
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const slides = document.querySelectorAll('.slide-container');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const currentSlideEl = document.getElementById('current-slide');
+            const totalSlidesEl = document.getElementById('total-slides');
+
+            let currentSlide = 0;
+            const totalSlides = slides.length;
+
+            totalSlidesEl.textContent = totalSlides;
+            updateSlide();
+
+            function updateSlide() {
+                slides.forEach((slide, index) => {
+                    if (index === currentSlide) {
+                        slide.classList.add('active');
+                    } else {
+                        slide.classList.remove('active');
+                    }
+                });
+                currentSlideEl.textContent = currentSlide + 1;
+                prevBtn.disabled = currentSlide === 0;
+                nextBtn.disabled = currentSlide === totalSlides - 1;
+            }
+
+            prevBtn.addEventListener('click', () => {
+                if (currentSlide > 0) {
+                    currentSlide--;
+                    updateSlide();
+                }
+            });
+
+            nextBtn.addEventListener('click', () => {
+                if (currentSlide < totalSlides - 1) {
+                    currentSlide++;
+                    updateSlide();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
